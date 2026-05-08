@@ -5,6 +5,8 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
+require_relative '../node_modules/react-native-permissions/scripts/setup'
+
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
@@ -22,9 +24,9 @@ target 'AirportDutyManagement' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
-  # react-native-permissions — only include permissions actually used
-  permissions_path = '../node_modules/react-native-permissions/ios'
-  pod 'Permission-Notifications', :path => "#{permissions_path}/Notifications"
+  setup_permissions([
+    'Notifications',
+  ])
 
   target 'AirportDutyManagementTests' do
     inherit! :complete
