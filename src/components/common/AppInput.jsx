@@ -1,7 +1,6 @@
 
 import React, {useState} from 'react';
 import {View, TextInput, Text, StyleSheet, TouchableOpacity} from 'react-native';
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import {colors} from '../../theme/colors';
 import {spacing as sp} from '../../theme/spacing';
 
@@ -23,11 +22,7 @@ const AppInput = ({label, error, style, secureTextEntry, ...props}) => {
         />
         {secureTextEntry && (
           <TouchableOpacity onPress={() => setHidden(h => !h)} style={styles.eyeBtn}>
-            <FontAwesome
-              name={hidden ? 'eye-slash' : 'eye'}
-              size={18}
-              color={colors.textSecondary}
-            />
+            <Text style={styles.eyeIcon}>{hidden ? '🙈' : '👁'}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -52,8 +47,8 @@ const styles = StyleSheet.create({
   focused: {borderColor: colors.primary},
   error: {borderColor: colors.error},
   eyeBtn: {paddingHorizontal: 12},
+  eyeIcon: {fontSize: 16},
   errorText: {fontSize: 11, color: colors.error, marginTop: 3},
 });
 
 export default AppInput;
- ``

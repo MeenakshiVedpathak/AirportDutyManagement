@@ -1,11 +1,15 @@
 import {AppRegistry} from 'react-native';
 import App from './App';
 import {name as appName} from './app.json';
-import {getMessaging, setBackgroundMessageHandler} from '@react-native-firebase/messaging';
+import {enableScreens} from 'react-native-screens';
 
-// Background + quit state FCM handler — must be registered before AppRegistry
-setBackgroundMessageHandler(getMessaging(), async () => {
-  // FCM shows the notification natively when app is in background/killed
-});
+enableScreens(true);
+
+try {
+  const {getMessaging, setBackgroundMessageHandler} = require('@react-native-firebase/messaging');
+  setBackgroundMessageHandler(getMessaging(), async () => {});
+} catch (e) {
+  // Firebase messaging unavailable (e.g. simulator or native bridge not ready)
+}
 
 AppRegistry.registerComponent(appName, () => App);

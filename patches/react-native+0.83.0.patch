@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native/React/Views/RCTComponentData.mm b/node_modules/react-native/React/Views/RCTComponentData.mm
+index 36de415..1112e1f 100644
+--- a/node_modules/react-native/React/Views/RCTComponentData.mm
++++ b/node_modules/react-native/React/Views/RCTComponentData.mm
+@@ -296,8 +296,10 @@ - (RCTPropBlock)createPropBlock:(NSString *)name isShadowView:(BOOL)isShadowView
+           }                                                           \
+           setDefaultValue = YES;                                      \
+         }                                                             \
++        if (![target respondsToSelector:setter]) { return; } \
+         set(target, setter, convert([RCTConvert class], type, json)); \
+       } else if (setDefaultValue) {                                   \
++        if (![target respondsToSelector:setter]) { return; }         \
+         set(target, setter, defaultValue);                            \
+       }                                                               \
+     };                                                                \
