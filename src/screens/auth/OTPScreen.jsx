@@ -13,13 +13,13 @@ const OTP_LENGTH = 6;
 
 const OTPScreen = () => {
   const navigation = useNavigation();
-  const {otpPending, isLoading, error, verifyOTP, resendOTP, clearOTPPending, clearError} = useAuth();
+  const {otpPending, isLoggedIn, isLoading, error, verifyOTP, resendOTP, clearOTPPending, clearError} = useAuth();
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [resendTimer, setResendTimer] = useState(30);
   const inputRefs = useRef([]);
 
   useEffect(() => {
-    if (!otpPending) {
+    if (!otpPending && !isLoggedIn) {
       navigation.replace('Login');
       return;
     }
