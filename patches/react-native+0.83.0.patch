@@ -1,8 +1,30 @@
 diff --git a/node_modules/react-native/React/Views/RCTComponentData.mm b/node_modules/react-native/React/Views/RCTComponentData.mm
-index 36de415..1112e1f 100644
+index 36de415..230823b 100644
 --- a/node_modules/react-native/React/Views/RCTComponentData.mm
 +++ b/node_modules/react-native/React/Views/RCTComponentData.mm
-@@ -296,8 +296,10 @@ - (RCTPropBlock)createPropBlock:(NSString *)name isShadowView:(BOOL)isShadowView
+@@ -144,7 +144,9 @@ static RCTPropBlock createEventSetter(
+         }
+       };
+     }
+-    ((void (*)(id, SEL, id))objc_msgSend)(target, setter, eventHandler);
++    if ([target respondsToSelector:setter]) {
++      ((void (*)(id, SEL, id))objc_msgSend)(target, setter, eventHandler);
++    }
+   };
+ }
+ 
+@@ -202,6 +204,10 @@ static RCTPropBlock createNSInvocationSetter(NSMethodSignature *typeSignature, S
+ 
+     // Set value
+     if (targetInvocation == nullptr) {
++      if (![target respondsToSelector:setter]) {
++        if (freeValueOnCompletion) { free(value); }
++        return;
++      }
+       NSMethodSignature *signature = [target methodSignatureForSelector:setter];
+       targetInvocation = [NSInvocation invocationWithMethodSignature:signature];
+       targetInvocation.selector = setter;
+@@ -296,8 +302,10 @@ - (RCTPropBlock)createPropBlock:(NSString *)name isShadowView:(BOOL)isShadowView
            }                                                           \
            setDefaultValue = YES;                                      \
          }                                                             \
