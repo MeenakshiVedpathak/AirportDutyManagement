@@ -55,10 +55,10 @@ function extractFlightNumber(text) {
 }
 
 function extractDate(text) {
-  // "28 APR 2025" or "28APR25" or "28/04/2025" or "28-04-25"
+  // "28 APR 2025" or "28APR25" or "28-APR-2025" or "28/04/2025" or "28-04-25"
   const patterns = [
-    // 28 APR 2025 / 28APR2025
-    /\b(\d{1,2})\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s*(\d{2,4})\b/,
+    // 28 APR 2025 / 28APR2025 / 28-APR-2025 (dash or space separator)
+    /\b(\d{1,2})[\s\-]*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\s\-]*(\d{2,4})\b/,
     // APR 28 2025
     /(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s*(\d{1,2})\s*(\d{2,4})/,
     // 28/04/2025 or 28-04-2025
@@ -90,17 +90,34 @@ function extractDate(text) {
 }
 
 function extractTime(text) {
-  // Look for STD / DEP TIME / DEPARTURE TIME labels first
-  const labeledRe = /(?:STD|DEP(?:ARTURE)?\s*TIME|SCHED(?:ULED)?)[^\d]*(\d{1,2}):?(\d{2})/;
-  const labeled = text.match(labeledRe);
-  if (labeled) {
-    return `${String(labeled[1]).padStart(2, '0')}:${labeled[2]}`;
+  // Priority 1: STD / DEP / DEPARTURE / DEPARTURE TIME / SCHEDULED
+  // Use [^\d\n]{0,20} to avoid crossing line boundaries or consuming too much text.
+  // Supports both "09:15" and "0915" (no-colon) formats via :? in the capture.
+  const depRe = /(?:STD|DEP(?:ARTURE)?(?:\s*TIME)?|SCHED(?:ULED)?)[^\d\n]{0,20}(\d{1,2}):?(\d{2})/;
+  const depMatch = text.match(depRe);
+  if (depMatch) {
+    const h = parseInt(depMatch[1], 10);
+    const m = parseInt(depMatch[2], 10);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
   }
 
-  // Fallback: find all HH:MM patterns, return the last plausible one
-  // (boarding passes usually list check-in, boarding, departure in order)
+  // Priority 2: BOARDING TIME (lower priority than departure labels)
+  const boardingRe = /BOARDING\s*TIME[^\d\n]{0,20}(\d{1,2}):?(\d{2})/;
+  const boardingMatch = text.match(boardingRe);
+  if (boardingMatch) {
+    const h = parseInt(boardingMatch[1], 10);
+    const m = parseInt(boardingMatch[2], 10);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+  }
+
+  // Fallback: scan all HH:MM patterns, return the first plausible one.
+  // E-tickets (IRCTC, Balmer Laurie) list departure before arrival in their tables.
   const all = [...text.matchAll(/\b(\d{1,2}):(\d{2})\b/g)];
-  for (let i = all.length - 1; i >= 0; i--) {
+  for (let i = 0; i < all.length; i++) {
     const h = parseInt(all[i][1], 10);
     const m = parseInt(all[i][2], 10);
     if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
