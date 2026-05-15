@@ -116,13 +116,16 @@ function extractTime(text) {
 
   // Fallback: scan all HH:MM patterns, return the first plausible one.
   // E-tickets (IRCTC, Balmer Laurie) list departure before arrival in their tables.
+  // Skip times that immediately follow a date (DD/MM/YYYY or YYYY-MM-DD) — those are
+  // booking/transaction timestamps, not flight times.
   const all = [...text.matchAll(/\b(\d{1,2}):(\d{2})\b/g)];
   for (let i = 0; i < all.length; i++) {
     const h = parseInt(all[i][1], 10);
     const m = parseInt(all[i][2], 10);
-    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    }
+    if (h < 0 || h > 23 || m < 0 || m > 59) continue;
+    const before = text.substring(Math.max(0, all[i].index - 15), all[i].index);
+    if (/\d{2,4}[-\/]\d{2}[-\/]\d{2,4},?\s*$/.test(before)) continue;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
   return null;
 }
