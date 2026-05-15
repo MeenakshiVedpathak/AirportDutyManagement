@@ -2,6 +2,7 @@
 
 #import <React/RCTBundleURLProvider.h>
 #import <Firebase/Firebase.h>
+#import <ReactAppDependencyProvider/RCTAppDependencyProvider.h>
 
 @implementation AppDelegate
 
@@ -9,6 +10,7 @@
 {
   [FIRApp configure];
 
+  self.dependencyProvider = [RCTAppDependencyProvider new];
   self.moduleName = @"AirportDutyManagement";
   self.initialProps = @{};
 

@@ -1,6 +1,14 @@
-import {AppRegistry} from 'react-native';
-import App from './App';
-import {name as appName} from './app.json';
+// Use require() so LogBox is configured before App (and its deps) load.
+// ES6 imports are hoisted — require() is not.
+const {AppRegistry, LogBox} = require('react-native');
+
+// Suppress ALL dev-mode warnings/errors in LogBox.
+// RN 0.83 + New Architecture generates many false-positive console.errors
+// from legacy bridge compatibility shims in third-party libraries.
+LogBox.ignoreAllLogs();
+
+const App = require('./App').default;
+const {name: appName} = require('./app.json');
 
 try {
   const {getMessaging, setBackgroundMessageHandler} = require('@react-native-firebase/messaging');

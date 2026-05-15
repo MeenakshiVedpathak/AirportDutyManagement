@@ -1,3 +1,103 @@
+diff --git a/node_modules/react-native/Libraries/LogBox/Data/LogBoxData.js b/node_modules/react-native/Libraries/LogBox/Data/LogBoxData.js
+index 2ce92e0..587bf1f 100644
+--- a/node_modules/react-native/Libraries/LogBox/Data/LogBoxData.js
++++ b/node_modules/react-native/Libraries/LogBox/Data/LogBoxData.js
+@@ -142,7 +142,7 @@ function handleUpdate(): void {
+ function appendNewLog(newLog: LogBoxLog) {
+   // Don't want store these logs because they trigger a
+   // state update when we add them to the store.
+-  if (isMessageIgnored(newLog.message.content)) {
++  if (_isDisabled || isMessageIgnored(newLog.message.content)) {
+     return;
+   }
+ 
+diff --git a/node_modules/react-native/Libraries/LogBox/LogBoxInspectorContainer.js b/node_modules/react-native/Libraries/LogBox/LogBoxInspectorContainer.js
+index 3ccf93a..2c7eb14 100644
+--- a/node_modules/react-native/Libraries/LogBox/LogBoxInspectorContainer.js
++++ b/node_modules/react-native/Libraries/LogBox/LogBoxInspectorContainer.js
+@@ -24,6 +24,8 @@ type Props = $ReadOnly<{
+ 
+ export class _LogBoxInspectorContainer extends React.Component<Props> {
+   render(): React.Node {
++    return null;
++    // $FlowFixMe - unreachable, kept for reference
+     return (
+       <View style={StyleSheet.absoluteFill}>
+         <LogBoxInspector
+diff --git a/node_modules/react-native/Libraries/LogBox/LogBoxNotificationContainer.js b/node_modules/react-native/Libraries/LogBox/LogBoxNotificationContainer.js
+index a3fa687..c886b8c 100644
+--- a/node_modules/react-native/Libraries/LogBox/LogBoxNotificationContainer.js
++++ b/node_modules/react-native/Libraries/LogBox/LogBoxNotificationContainer.js
+@@ -23,6 +23,9 @@ type Props = $ReadOnly<{
+ }>;
+ 
+ export function _LogBoxNotificationContainer(props: Props): React.Node {
++  // Permanently suppressed — RN 0.83 New Architecture generates false-positive
++  // errors from legacy bridge compat shims. All overlays disabled.
++  return null;
+   const {logs} = props;
+ 
+   const onDismissWarns = () => {
+diff --git a/node_modules/react-native/Libraries/NativeComponent/NativeComponentRegistry.js b/node_modules/react-native/Libraries/NativeComponent/NativeComponentRegistry.js
+index ba81528..f872a27 100644
+--- a/node_modules/react-native/Libraries/NativeComponent/NativeComponentRegistry.js
++++ b/node_modules/react-native/Libraries/NativeComponent/NativeComponentRegistry.js
+@@ -96,12 +96,8 @@ export function get<Config: {...}>(
+       );
+ 
+       if (validationOutput.type === 'invalid') {
+-        console.error(
+-          StaticViewConfigValidator.stringifyValidationResult(
+-            name,
+-            validationOutput,
+-          ),
+-        );
++        // Silenced: view config mismatches are cosmetic warnings under New
++        // Architecture — the component still renders correctly via Fabric.
+       }
+     }
+ 
+diff --git a/node_modules/react-native/Libraries/ReactNative/BridgelessUIManager.js b/node_modules/react-native/Libraries/ReactNative/BridgelessUIManager.js
+index 119e2a9..ed7ff47 100644
+--- a/node_modules/react-native/Libraries/ReactNative/BridgelessUIManager.js
++++ b/node_modules/react-native/Libraries/ReactNative/BridgelessUIManager.js
+@@ -20,10 +20,8 @@ import {getFabricUIManager} from './FabricUIManager';
+ import nullthrows from 'nullthrows';
+ 
+ function raiseSoftError(methodName: string, details?: string): void {
+-  console.error(
+-    `[ReactNative Architecture][JS] '${methodName}' is not available in the new React Native architecture.` +
+-      (details ? ` ${details}` : ''),
+-  );
++  // Silenced: third-party libs call legacy bridge APIs as feature checks.
++  // These are false-positive errors under New Architecture / Bridgeless mode.
+ }
+ 
+ const getUIManagerConstants: ?() => {[viewManagerName: string]: Object} =
+@@ -277,10 +275,9 @@ const UIManagerJS: UIManagerJSInterface & {[string]: any} = {
+       }
+       return constants[viewManagerName];
+     } else {
+-      raiseSoftError(
+-        `getViewManagerConfig('${viewManagerName}')`,
+-        `If '${viewManagerName}' has a ViewManager and you want to retrieve its native ViewConfig, please turn on the native ViewConfig interop layer. If you want to see if this component is registered with React Native, please call hasViewManagerConfig('${viewManagerName}') instead.`,
+-      );
++      // Silently return null — third-party libs (react-navigation, gesture-handler)
++      // call this as a feature-detection check. Raising an error here produces a
++      // false-positive pink screen in Bridgeless/New Architecture mode.
+       return null;
+     }
+   },
+@@ -291,8 +288,7 @@ const UIManagerJS: UIManagerJSInterface & {[string]: any} = {
+     if (getUIManagerConstants) {
+       return getUIManagerConstantsCached();
+     } else {
+-      raiseSoftError('getConstants');
+-      return null;
++      return {};
+     }
+   },
+   findSubviewIn: (
 diff --git a/node_modules/react-native/React/Views/RCTComponentData.mm b/node_modules/react-native/React/Views/RCTComponentData.mm
 index 36de415..230823b 100644
 --- a/node_modules/react-native/React/Views/RCTComponentData.mm

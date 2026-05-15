@@ -5,7 +5,8 @@ import {store, persistor} from './src/store';
 import AppNavigator from './src/navigation/AppNavigator';
 import Toast from 'react-native-toast-message';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {StyleSheet, View, ActivityIndicator} from 'react-native';
+import {StyleSheet, View, ActivityIndicator, Platform} from 'react-native';
+import messaging from '@react-native-firebase/messaging';
 import {requestNotificationPermission, setupForegroundNotificationListener} from './src/utils/notificationHandler';
 
 export default function App() {
@@ -18,6 +19,26 @@ export default function App() {
     const unsubscribe = setupForegroundNotificationListener(navigationRef);
     return unsubscribe;
   }, []);
+
+   useEffect(() => {
+    checkApplicationPermission();
+  }, []);
+
+  async function checkApplicationPermission() {
+    const authorizationStatus = await messaging().requestPermission();
+    if (
+      authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL
+    ) {
+      // 👇 Required for iOS to receive remote notifications
+      if (Platform.OS === 'ios') {
+        await messaging().registerDeviceForRemoteMessages();
+      }
+      const fcmToken = await messaging().getToken();
+    } else {
+      console.log('User has notification permissions disabled');
+    }
+  }
 
   return (
     <GestureHandlerRootView style={styles.flex}>

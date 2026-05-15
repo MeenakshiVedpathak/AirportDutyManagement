@@ -23,8 +23,7 @@ const OTPScreen = () => {
       navigation.replace('Login');
       return;
     }
-    // Auto-fill OTP hint in development
-    if (otpPending.otp) {
+    if (otpPending?.otp) {
       const digits = otpPending.otp.split('');
       setOtp(digits);
     }

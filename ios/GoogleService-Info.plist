@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.gttdata.ams</string>
+	<string>com.airportdutymanagement</string>
 	<key>PROJECT_ID</key>
 	<string>airportmgnt</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:320974813686:ios:f3936f6c0d5c100f872fd7</string>
+	<string>1:320974813686:ios:ad7a72a989f090d7872fd7</string>
 </dict>
 </plist>
