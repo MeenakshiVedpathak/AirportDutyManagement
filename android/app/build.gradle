@@ -64,6 +64,21 @@ android {
 dependencies {
     implementation('com.facebook.react:react-android')
     implementation('com.facebook.react:hermes-android')
+
+    // Autolinked native modules
+    implementation project(':notifee_react-native')
+    implementation project(':react-native-async-storage_async-storage')
+    implementation project(':react-native-community_datetimepicker')
+    implementation project(':react-native-firebase_app')
+    implementation project(':react-native-firebase_messaging')
+    implementation project(':react-native-ml-kit_text-recognition')
+    implementation project(':react-native-gesture-handler')
+    implementation project(':react-native-image-picker')
+    implementation project(':react-native-permissions')
+    implementation project(':react-native-safe-area-context')
+    implementation project(':react-native-screens')
+    implementation project(':react-native-share')
+    implementation project(':react-native-vector-icons')
 }
 
 apply plugin: 'com.google.gms.google-services'
