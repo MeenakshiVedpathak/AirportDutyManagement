@@ -228,19 +228,25 @@ function extractTerminalNumber(text) {
 }
 
 function extractPassengerCount(text) {
-  // IndiGo/SpiceJet boarding passes: each passenger stub has a unique "Seq XXXX"
-  const seqSet = new Set();
-  for (const m of text.matchAll(/\bSEQ\s*(\d{3,4})\b/g)) {
-    seqSet.add(m[1]);
-  }
-  if (seqSet.size >= 2) return seqSet.size;
-
-  // Fallback: count distinct LASTNAME/FIRSTNAME name blocks (Air India, Vistara, etc.)
+  // Signal 1 — IndiGo/SpiceJet web boarding passes:
+  // Each passenger stub is printed as LASTNAME/FIRSTNAME followed by a salutation.
+  // Two distinct name tokens = two different people on the same flight.
+  // (Seq numbers are NOT used — a round-trip single-passenger PDF also has two
+  //  different Seq values, making them an unreliable discriminator.)
   const nameSet = new Set();
   for (const m of text.matchAll(/\b([A-Z]+\/[A-Z]+)\s+(?:MR|MS|MRS|MISS|DR)\b/g)) {
     nameSet.add(m[1]);
   }
   if (nameSet.size >= 2) return nameSet.size;
+
+  // Signal 2 — IndiGo itinerary PDFs (e.g. W8MC5M):
+  // Each passenger gets their own printed page, each opening with a
+  // "Passenger Information" section header. Count those headers, but stop
+  // before the T&C section where the word "passenger" appears many times.
+  const termsIdx = text.search(/\bTERMS\s*(?:&|AND)\s*CONDITIONS\b/);
+  const body = termsIdx > -1 ? text.substring(0, termsIdx) : text;
+  const paxSections = [...body.matchAll(/\bPASSENGER\s+INFORMATION\b/g)];
+  if (paxSections.length >= 2) return paxSections.length;
 
   return 1;
 }
