@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useLayoutEffect, useRef} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useForm, Controller} from 'react-hook-form';
@@ -119,6 +119,13 @@ const OfficerCreateDutyScreen = () => {
     if (activePrefill.arrivalDeparture) setValue('arrivalDeparture', activePrefill.arrivalDeparture);
     if (activePrefill.noOfPassengers) setValue('noOfPassengers', String(activePrefill.noOfPassengers));
   }, [activePrefill]);
+
+  // Force-set noOfPassengers before first paint so the field never flickers to '1'.
+  useLayoutEffect(() => {
+    if (activePrefill?.noOfPassengers && activePrefill.noOfPassengers > 1) {
+      setValue('noOfPassengers', String(activePrefill.noOfPassengers));
+    }
+  }, []);
 
   // Show a one-time popup when the boarding pass scan detected multiple passengers.
   const paxAlertShown = useRef(false);
