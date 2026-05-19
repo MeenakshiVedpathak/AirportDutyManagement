@@ -117,6 +117,7 @@ const OfficerCreateDutyScreen = () => {
     if (activePrefill.to) setValue('to', activePrefill.to);
     if (activePrefill.flightNo) setValue('flightNo', activePrefill.flightNo);
     if (activePrefill.arrivalDeparture) setValue('arrivalDeparture', activePrefill.arrivalDeparture);
+    if (activePrefill.noOfPassengers) setValue('noOfPassengers', String(activePrefill.noOfPassengers));
   }, [activePrefill]);
 
   // Auto-select airport from activePrefill.from city.

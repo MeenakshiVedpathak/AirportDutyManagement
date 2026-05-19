@@ -227,6 +227,24 @@ function extractTerminalNumber(text) {
   return m ? m[1] : null;
 }
 
+function extractPassengerCount(text) {
+  // IndiGo/SpiceJet boarding passes: each passenger stub has a unique "Seq XXXX"
+  const seqSet = new Set();
+  for (const m of text.matchAll(/\bSEQ\s*(\d{3,4})\b/g)) {
+    seqSet.add(m[1]);
+  }
+  if (seqSet.size >= 2) return seqSet.size;
+
+  // Fallback: count distinct LASTNAME/FIRSTNAME name blocks (Air India, Vistara, etc.)
+  const nameSet = new Set();
+  for (const m of text.matchAll(/\b([A-Z]+\/[A-Z]+)\s+(?:MR|MS|MRS|MISS|DR)\b/g)) {
+    nameSet.add(m[1]);
+  }
+  if (nameSet.size >= 2) return nameSet.size;
+
+  return 1;
+}
+
 // Scans text for adjacent city-name pairs that appear within windowSize chars of each other.
 // Returns an ordered array of {from, to} pairs — index 0 = first route, 1 = second route, etc.
 // Used to recover city pairs from the pre-flight header block on table-format e-tickets
@@ -292,6 +310,7 @@ function parseSegment(text) {
     ...extractCities(text),
     arrivalDeparture: extractArrivalDeparture(text),
     terminal: extractTerminalNumber(text),
+    noOfPassengers: extractPassengerCount(text),
   };
 }
 
@@ -318,15 +337,16 @@ export function parseAllFlights(rawOcrText) {
   );
   const allMatches = [...text.matchAll(flightRe)];
 
-  // Deduplicate: boarding-pass stubs repeat the same code a few chars apart.
+  // Deduplicate: boarding passes often repeat the same flight code in stubs,
+  // footers, or barcodes. Keep only the FIRST occurrence of each flight number.
   const unique = [];
+  const seenFlights = new Set();
   for (const m of allMatches) {
     const prefix = m[1] === 'A1' ? 'AI' : m[1];
     const flightNo = `${prefix} ${m[2]}`;
-    const matchEnd = m.index + m[0].length;
-    const last = unique[unique.length - 1];
-    if (last && last.flightNo === flightNo && m.index - last.pos < 120) continue;
-    unique.push({flightNo, pos: m.index, end: matchEnd});
+    if (seenFlights.has(flightNo)) continue;
+    seenFlights.add(flightNo);
+    unique.push({flightNo, pos: m.index, end: m.index + m[0].length});
   }
 
   // Nothing found — parse the whole text as one segment.
@@ -347,6 +367,7 @@ export function parseAllFlights(rawOcrText) {
       ...finalCities,
       arrivalDeparture: extractArrivalDeparture(text),
       terminal:         extractTerminalNumber(citiesChunk) ?? extractTerminalNumber(timesChunk),
+      noOfPassengers:   extractPassengerCount(text),
     }];
   }
 
@@ -411,6 +432,7 @@ export function parseAllFlights(rawOcrText) {
       ...finalCities,
       arrivalDeparture: extractArrivalDeparture(citiesChunk + timesChunk),
       terminal,
+      noOfPassengers:   extractPassengerCount(text),
     };
   });
 }
