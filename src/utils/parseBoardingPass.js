@@ -258,6 +258,18 @@ function extractPassengerCount(text) {
   }
   if (paxTitles.size >= 2) return paxTitles.size;
 
+  // Signal 4 — camera-scan fallback for "MR FIRSTNAME LASTNAME" format (no slash):
+  // Physical boarding passes, Air India e-tickets, and other formats that print names
+  // as "MR JOHN SMITH" rather than "SMITH/JOHN MR".
+  // [^\S\n]+ (space/tab only, no newline) keeps each match on a single line so that
+  // "MS DHANSHREE DAMLE\nMANAGE BOOKING" doesn't produce two different entries.
+  // Same name repeated across the pass deduplicates to 1 → single-passenger stays 1.
+  const plainNames = new Set();
+  for (const m of text.matchAll(/\b(MRS?|MS|MISS|DR)[^\S\n]+((?:[A-Z]{2,}[^\S\n]+){1,3}[A-Z]{2,})/g)) {
+    plainNames.add(m[1] + ' ' + m[2].trim());
+  }
+  if (plainNames.size >= 2) return plainNames.size;
+
   return 1;
 }
 

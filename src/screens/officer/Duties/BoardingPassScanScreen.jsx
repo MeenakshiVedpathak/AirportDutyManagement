@@ -234,6 +234,9 @@ const BoardingPassScanScreen = () => {
                   <Text style={styles.flightMeta}>
                     {seg.date || 'Date not detected'}  ·  {seg.flightTime || 'Time not detected'}
                   </Text>
+                  <Text style={styles.flightMeta}>
+                    {seg.noOfPassengers > 1 ? `👥 ${seg.noOfPassengers} Passengers` : '👤 1 Passenger'}
+                  </Text>
 
                   {!isDone && (
                     <View style={styles.tapRow}>
@@ -259,7 +262,7 @@ const BoardingPassScanScreen = () => {
             style={styles.rawToggle}
             onPress={() => {
               const flightSummary = segments.map((s, i) =>
-                `[${i + 1}] ${s.flightNo || '?'} | ${s.from || '?'} → ${s.to || '?'} | ${s.date || '?'} ${s.flightTime || '?'}`
+                `[${i + 1}] ${s.flightNo || '?'} | ${s.from || '?'} → ${s.to || '?'} | ${s.date || '?'} ${s.flightTime || '?'} | ${s.noOfPassengers || 1} pax`
               ).join('\n');
               Alert.alert(
                 `OCR Debug (${segments.length} flight${segments.length !== 1 ? 's' : ''} found)`,
