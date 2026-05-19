@@ -71,7 +71,7 @@ const OfficerCreateDutyScreen = () => {
     }
   };
 
-  const {control, handleSubmit, setValue, watch, formState: {errors, isSubmitting}} = useForm({
+  const {control, handleSubmit, setValue, reset, getValues, watch, formState: {errors, isSubmitting}} = useForm({
     resolver: dutyResolver,
     defaultValues: {
       officerId: user?.id?.toString() || '',
@@ -120,10 +120,11 @@ const OfficerCreateDutyScreen = () => {
     if (activePrefill.noOfPassengers) setValue('noOfPassengers', String(activePrefill.noOfPassengers));
   }, [activePrefill]);
 
-  // Force-set noOfPassengers before first paint so the field never flickers to '1'.
+  // Force-set noOfPassengers before first paint using reset() — more reliable than
+  // setValue() because reset() flushes the entire form state atomically.
   useLayoutEffect(() => {
     if (activePrefill?.noOfPassengers && activePrefill.noOfPassengers > 1) {
-      setValue('noOfPassengers', String(activePrefill.noOfPassengers));
+      reset({...getValues(), noOfPassengers: String(activePrefill.noOfPassengers)});
     }
   }, []);
 
