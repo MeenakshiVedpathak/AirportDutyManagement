@@ -120,6 +120,11 @@ const OfficerCreateDutyScreen = () => {
     if (activePrefill.noOfPassengers) setValue('noOfPassengers', String(activePrefill.noOfPassengers));
   }, [activePrefill]);
 
+  // DEBUG — remove after confirming fix
+  useEffect(() => {
+    Alert.alert('DEBUG pax', `route.params.prefill.noOfPassengers = ${route.params?.prefill?.noOfPassengers}\nactivePrefill.noOfPassengers = ${activePrefill?.noOfPassengers}`);
+  }, []);
+
   // Force-set noOfPassengers before first paint using reset() — more reliable than
   // setValue() because reset() flushes the entire form state atomically.
   useLayoutEffect(() => {
