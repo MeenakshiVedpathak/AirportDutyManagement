@@ -78,7 +78,7 @@ const BoardingPassScanScreen = () => {
   const pickPdf = async () => {
     const {FilePicker} = NativeModules;
     if (!FilePicker) {
-      Alert.alert('Not Available', 'File picker module not found. Please rebuild the app.');
+      Alert.alert('Not Available', 'File picker not found. Please reinstall the app.');
       return;
     }
     try {
