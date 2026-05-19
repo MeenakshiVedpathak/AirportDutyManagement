@@ -1,8 +1,7 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useForm, Controller} from 'react-hook-form';
-import {yupResolver} from '@hookform/resolvers/yup';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSelector, useDispatch} from 'react-redux';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -45,7 +44,6 @@ const CreateDutyScreen = () => {
     dispatch(setTerminals([]));
   }, []);
 
-  // When airport changes, load its terminals and reset terminal selection
   const handleAirportChange = async (airportId) => {
     const airport = airports.find(a => a.id === airportId);
     setValue('airportId', airportId);
@@ -78,14 +76,34 @@ const CreateDutyScreen = () => {
   const [airportOpen, setAirportOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
 
+  const dutyResolver = async values => {
+    try {
+      const valid = await dutySchema.validate(values, {abortEarly: false});
+      return {values: valid, errors: {}};
+    } catch (e) {
+      if (e.name === 'ValidationError' && e.inner?.length) {
+        const errs = {};
+        for (const err of e.inner) {
+          if (err.path && !errs[err.path]) {
+            errs[err.path] = {message: err.message, type: 'validation'};
+          }
+        }
+        return {values: {}, errors: errs};
+      }
+      Alert.alert('Validation Error', e?.message || 'Unknown error — check the form');
+      return {values: {}, errors: {}};
+    }
+  };
+
   const {control, handleSubmit, setValue, watch, formState: {errors, isSubmitting}} = useForm({
-    resolver: yupResolver(dutySchema),
+    resolver: dutyResolver,
     defaultValues: {
       officerId: '', date: prefill?.date || toAPIDate(new Date()), reportingTime: toAPITime(new Date()),
       officeType: '', from: prefill?.from || '', to: prefill?.to || '',
       flightNo: prefill?.flightNo || '', flightTime: prefill?.flightTime || toAPITime(new Date()),
       officerName: '', arrivalDeparture: prefill?.arrivalDeparture || 'DEPARTURE',
       airportId: '', airportName: '', terminalId: '', terminalName: '',
+      noOfPassengers: '1',
     },
   });
 
@@ -110,14 +128,12 @@ const CreateDutyScreen = () => {
     if (prefill.arrivalDeparture) setValue('arrivalDeparture', prefill.arrivalDeparture);
   }, [prefill]);
 
-  // Build dropdown list — admin "myself" first, then active subordinates
   const MYSELF_VALUE = adminUser?.id || adminUser?._id || 'myself';
   const officerItems = [
     {label: `${adminUser?.name} (Myself — Admin)`, value: MYSELF_VALUE},
     ...officers.filter(o => o.isEnabled).map(o => ({label: o.name, value: o.id?.toString()})),
   ];
 
-  // Auto-fill officerName whenever the dropdown selection changes
   useEffect(() => {
     if (!selectedOfficerId) return;
     if (selectedOfficerId === MYSELF_VALUE) {
@@ -128,17 +144,27 @@ const CreateDutyScreen = () => {
     }
   }, [selectedOfficerId]);
 
+  const onFormError = errs => {
+    const msgs = Object.entries(errs).map(([k, v]) => `${k}: ${v.message}`).join('\n');
+    Alert.alert('Please fix these fields', msgs);
+  };
+
   const onSubmit = async data => {
-    const result = await addDuty(data);
-    if (result) {
+    try {
+      const result = await addDuty(data);
+      if (!result) {
+        Alert.alert('Save Failed', 'Could not save the duty. Check your connection and try again.');
+        return;
+      }
       setCreatedDuty(result);
       setMsgVisible(true);
+    } catch (e) {
+      Alert.alert('Unexpected Error', e?.message || 'Something went wrong. Please try again.');
     }
   };
 
   const subordinatePhone = (() => {
     if (!createdDuty) return '';
-    const MYSELF_VALUE = adminUser?.id || adminUser?._id || 'myself';
     if (createdDuty.officerId === MYSELF_VALUE || createdDuty.officerId === (adminUser?.id || adminUser?._id)) {
       return adminUser?.phone || '';
     }
@@ -238,6 +264,17 @@ const CreateDutyScreen = () => {
         )} />
         {errors.arrivalDeparture && <Text style={styles.err}>{errors.arrivalDeparture.message}</Text>}
 
+        <Controller control={control} name="noOfPassengers" render={({field: {onChange, value}}) => (
+          <AppInput
+            label="No. of Passengers"
+            value={String(value ?? '1')}
+            onChangeText={v => onChange(v.replace(/[^0-9]/g, '') || '1')}
+            keyboardType="numeric"
+            placeholder="1"
+            error={errors.noOfPassengers?.message}
+          />
+        )} />
+
         <Text style={styles.sectionLabel}>Airport</Text>
         <Controller control={control} name="airportId" render={({field: {value}}) => (
           <DropDownPicker
@@ -271,7 +308,7 @@ const CreateDutyScreen = () => {
         )} />
         {errors.terminalId && <Text style={styles.err}>{errors.terminalId.message}</Text>}
 
-        <AppButton title="Create Duty" onPress={handleSubmit(onSubmit)} loading={isSubmitting} style={styles.btn} />
+        <AppButton title="Create Duty" onPress={handleSubmit(onSubmit, onFormError)} loading={isSubmitting} style={styles.btn} />
       </ScrollView>
 
       <WhatsAppMessageModal

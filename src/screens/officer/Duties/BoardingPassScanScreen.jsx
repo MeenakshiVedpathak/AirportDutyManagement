@@ -1,33 +1,38 @@
-import React, {useState} from 'react';
+import React, {useState, useCallback} from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
   TouchableOpacity, ActivityIndicator, Alert, Platform, PermissionsAndroid,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
+import {NativeModules} from 'react-native';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
-import {parseBoardingPass} from '../../../utils/parseBoardingPass';
+import {parseAllFlights} from '../../../utils/parseBoardingPass';
+import {consumeCreatedScanIndex} from '../../../utils/pendingDutyStore';
+import {extractPdfText} from '../../../api/boardingPassApi';
 import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
 import AppButton from '../../../components/common/AppButton';
-import AppInput from '../../../components/common/AppInput';
-
-const FIELD_LABELS = {
-  flightNo: 'Flight No',
-  from: 'From (City)',
-  to: 'To (City)',
-  date: 'Date (YYYY-MM-DD)',
-  flightTime: 'Flight Time (HH:mm)',
-  arrivalDeparture: 'Arrival / Departure',
-};
 
 const BoardingPassScanScreen = () => {
   const navigation = useNavigation();
+
   const [imageUri, setImageUri] = useState(null);
   const [scanning, setScanning] = useState(false);
-  const [parsed, setParsed] = useState(null);
+  const [segments, setSegments] = useState([]);
   const [rawText, setRawText] = useState('');
+  const [doneIndices, setDoneIndices] = useState(new Set());
+
+  // Each time this screen regains focus, check if CreateDutyScreen signalled a completed card.
+  useFocusEffect(
+    useCallback(() => {
+      const idx = consumeCreatedScanIndex();
+      if (idx !== null && idx !== undefined) {
+        setDoneIndices(prev => new Set([...prev, idx]));
+      }
+    }, []),
+  );
 
   const requestCameraPermission = async () => {
     if (Platform.OS !== 'android') return true;
@@ -55,22 +60,55 @@ const BoardingPassScanScreen = () => {
       const ok = await requestCameraPermission();
       if (!ok) return;
     }
-    const options = {
-      mediaType: 'photo',
-      quality: 1.0,
-      includeBase64: false,
-    };
+    const options = {mediaType: 'photo', quality: 1.0, includeBase64: false};
     const picker = fromCamera ? launchCamera : launchImageLibrary;
     picker(options, response => {
       if (response.didCancel || response.errorCode) return;
       const uri = response.assets?.[0]?.uri;
       if (uri) {
         setImageUri(uri);
-        setParsed(null);
+        setSegments([]);
         setRawText('');
+        setDoneIndices(new Set());
         runOCR(uri);
       }
     });
+  };
+
+  const pickPdf = async () => {
+    const {FilePicker} = NativeModules;
+    if (!FilePicker) {
+      Alert.alert('Not Available', 'File picker module not found. Please rebuild the app.');
+      return;
+    }
+    try {
+      const uri = await FilePicker.pickPdf();
+      setImageUri(null);
+      setSegments([]);
+      setRawText('');
+      setDoneIndices(new Set());
+      setScanning(true);
+      try {
+        const fileName = uri.split('/').pop() || 'boarding-pass.pdf';
+        const text = await extractPdfText(uri, fileName);
+        console.log('[PDF_TEXT]', text);
+        setRawText(text);
+        const found = parseAllFlights(text);
+        console.log('[PDF_PARSED]', JSON.stringify(found));
+        setSegments(found);
+        if (found.length === 0) {
+          Alert.alert('No Flights Found', 'Could not detect flight details in this PDF. Try a clearer boarding pass image instead.');
+        }
+      } catch (e) {
+        Alert.alert('PDF Read Failed', e?.message || 'Could not extract text from this PDF.');
+      } finally {
+        setScanning(false);
+      }
+    } catch (e) {
+      if (e?.code !== 'CANCELLED') {
+        Alert.alert('Error', e?.message || 'Could not open file picker.');
+      }
+    }
   };
 
   const runOCR = async (uri) => {
@@ -78,9 +116,11 @@ const BoardingPassScanScreen = () => {
     try {
       const result = await TextRecognition.recognize(uri);
       const allText = result.blocks.map(b => b.text).join('\n');
+      console.log('[OCR_RAW]', allText);
       setRawText(allText);
-      const fields = parseBoardingPass(allText);
-      setParsed(fields);
+      const found = parseAllFlights(allText);
+      console.log('[OCR_PARSED]', JSON.stringify(found));
+      setSegments(found);
     } catch (e) {
       Alert.alert('Scan Failed', 'Could not read text from the image. Try a clearer photo.');
     } finally {
@@ -88,29 +128,28 @@ const BoardingPassScanScreen = () => {
     }
   };
 
-  const updateField = (key, value) => {
-    setParsed(prev => ({...prev, [key]: value}));
-  };
-
-  const handleProceed = () => {
-    if (!parsed) return;
-    // Navigate to CreateDuty with pre-filled data
-    navigation.navigate('CreateDuty', {prefill: parsed});
-  };
-
   const showSourcePicker = () => {
     Alert.alert(
-      'Select Image Source',
+      'Select Source',
       'Choose how to add the boarding pass',
       [
         {text: 'Camera', onPress: () => pickImage(true)},
-        {text: 'Gallery', onPress: () => pickImage(false)},
+        {text: 'Photo Gallery', onPress: () => pickImage(false)},
+        {text: 'Files / PDF', onPress: pickPdf},
         {text: 'Cancel', style: 'cancel'},
       ],
     );
   };
 
-  const hasAnyField = parsed && Object.values(parsed).some(v => v);
+  const handleCreateDuty = (seg, index) => {
+    navigation.push('CreateDuty', {
+      prefill: seg,
+      returnToScan: true,
+      scanIndex: index,
+    });
+  };
+
+  const allDone = segments.length > 0 && segments.every((_, i) => doneIndices.has(i));
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -124,31 +163,27 @@ const BoardingPassScanScreen = () => {
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
-        {/* Instructions */}
         <View style={styles.infoBox}>
           <Text style={styles.infoTitle}>Works with all Indian airlines</Text>
           <Text style={styles.infoText}>
             IndiGo · Air India · Vistara · SpiceJet · Akasa · GoFirst{'\n'}
-            Take a clear photo or pick from gallery. Keep the pass flat and well-lit.
+            Take a photo, pick from gallery, or select a PDF boarding pass from Files.
           </Text>
         </View>
 
-        {/* Scan button */}
         <TouchableOpacity style={styles.scanBtn} onPress={showSourcePicker}>
           <Text style={styles.scanIcon}>📷</Text>
           <Text style={styles.scanBtnText}>
-            {imageUri ? 'Rescan / Change Image' : 'Scan Boarding Pass'}
+            {imageUri || rawText ? 'Rescan / Change' : 'Scan Boarding Pass / Pick PDF'}
           </Text>
         </TouchableOpacity>
 
-        {/* Image preview */}
         {imageUri && (
           <View style={styles.previewBox}>
             <Image source={{uri: imageUri}} style={styles.preview} resizeMode="contain" />
           </View>
         )}
 
-        {/* OCR in progress */}
         {scanning && (
           <View style={styles.scanningBox}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -156,46 +191,81 @@ const BoardingPassScanScreen = () => {
           </View>
         )}
 
-        {/* Extracted fields */}
-        {parsed && !scanning && (
+        {/* Flight cards — one per detected flight */}
+        {segments.length > 0 && !scanning && (
           <View style={styles.resultCard}>
-            <Text style={styles.resultTitle}>Extracted Details</Text>
-            <Text style={styles.resultSub}>Review and edit before creating duty</Text>
-
-            {Object.entries(FIELD_LABELS).map(([key, label]) => (
-              <AppInput
-                key={key}
-                label={label}
-                value={parsed[key] || ''}
-                onChangeText={v => updateField(key, v)}
-                placeholder={parsed[key] ? '' : 'Not detected — enter manually'}
-                style={parsed[key] ? styles.fieldFilled : styles.fieldEmpty}
-              />
-            ))}
-
-            {!hasAnyField && (
-              <View style={styles.noDataBox}>
-                <Text style={styles.noDataText}>
-                  No fields detected. The image may be unclear.{'\n'}
-                  Try a better-lit photo with the pass held flat.
+            <View style={styles.resultHeader}>
+              <Text style={styles.resultTitle}>
+                {segments.length === 1 ? '1 Flight Found' : `${segments.length} Flights Found`}
+              </Text>
+              <View style={[styles.countBadge, segments.length > 1 ? styles.countBadgeMulti : styles.countBadgeSingle]}>
+                <Text style={styles.countBadgeText}>
+                  {doneIndices.size}/{segments.length} done
                 </Text>
               </View>
-            )}
+            </View>
+            <Text style={styles.resultSub}>Tap a flight card to create its duty</Text>
 
-            <AppButton
-              title="Use These Details to Create Duty"
-              onPress={handleProceed}
-              style={styles.proceedBtn}
-              disabled={!hasAnyField}
-            />
+            {segments.map((seg, i) => {
+              const isDone = doneIndices.has(i);
+              const isArrival = (seg.arrivalDeparture || '').toUpperCase() === 'ARRIVAL';
+              return (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.flightCard, isDone && styles.flightCardDone]}
+                  onPress={() => !isDone && handleCreateDuty(seg, i)}
+                  activeOpacity={isDone ? 1 : 0.72}>
+
+                  <View style={styles.flightCardTop}>
+                    <View style={[styles.typeBadge, isArrival ? styles.typeBadgeArr : styles.typeBadgeDep]}>
+                      <Text style={styles.typeBadgeText}>{isArrival ? '✈ ARRIVAL' : '✈ DEPARTURE'}</Text>
+                    </View>
+                    {isDone && (
+                      <View style={styles.doneBadge}>
+                        <Text style={styles.doneBadgeText}>✓ Duty Created</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.flightNo}>{seg.flightNo || '(flight no. not detected)'}</Text>
+                  <Text style={styles.flightRoute}>
+                    {seg.from || '?'}  →  {seg.to || '?'}
+                  </Text>
+                  <Text style={styles.flightMeta}>
+                    {seg.date || 'Date not detected'}  ·  {seg.flightTime || 'Time not detected'}
+                  </Text>
+
+                  {!isDone && (
+                    <View style={styles.tapRow}>
+                      <Text style={styles.tapText}>Tap to fill duty form →</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+
+            {allDone && (
+              <AppButton
+                title="All Duties Created — Go to Dashboard"
+                onPress={() => navigation.navigate('Dashboard')}
+                style={styles.doneAllBtn}
+              />
+            )}
           </View>
         )}
 
-        {/* Raw OCR text (debug helper) */}
         {rawText.length > 0 && !scanning && (
           <TouchableOpacity
             style={styles.rawToggle}
-            onPress={() => Alert.alert('OCR Raw Text', rawText)}>
+            onPress={() => {
+              const flightSummary = segments.map((s, i) =>
+                `[${i + 1}] ${s.flightNo || '?'} | ${s.from || '?'} → ${s.to || '?'} | ${s.date || '?'} ${s.flightTime || '?'}`
+              ).join('\n');
+              Alert.alert(
+                `OCR Debug (${segments.length} flight${segments.length !== 1 ? 's' : ''} found)`,
+                `--- Parsed ---\n${flightSummary}\n\n--- Raw OCR ---\n${rawText}`,
+              );
+            }}>
             <Text style={styles.rawToggleText}>View raw OCR text</Text>
           </TouchableOpacity>
         )}
@@ -247,15 +317,43 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white, borderRadius: 10, padding: 16,
     marginBottom: 16, ...shadows.sm,
   },
-  resultTitle: {fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 2},
+  resultHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4},
+  resultTitle: {fontSize: 16, fontWeight: '700', color: colors.text},
+  countBadge: {borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3},
+  countBadgeSingle: {backgroundColor: '#DBEAFE'},
+  countBadgeMulti: {backgroundColor: '#DCFCE7'},
+  countBadgeText: {fontSize: 12, fontWeight: '700', color: colors.text},
   resultSub: {fontSize: 12, color: colors.textSecondary, marginBottom: 14},
-  fieldFilled: {backgroundColor: '#F0FDF4'},
-  fieldEmpty: {backgroundColor: '#FFF7ED'},
-  noDataBox: {
-    backgroundColor: '#FEF2F2', borderRadius: 8, padding: 12, marginBottom: 12,
+
+  flightCard: {
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+    padding: 14, marginBottom: 12, backgroundColor: colors.surface,
   },
-  noDataText: {fontSize: 13, color: '#DC2626', textAlign: 'center', lineHeight: 20},
-  proceedBtn: {marginTop: 8},
+  flightCardDone: {
+    borderColor: '#16A34A', backgroundColor: '#F0FDF4',
+  },
+  flightCardTop: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 10,
+  },
+  typeBadge: {borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4},
+  typeBadgeDep: {backgroundColor: '#DBEAFE'},
+  typeBadgeArr: {backgroundColor: '#FEF3C7'},
+  typeBadgeText: {fontSize: 11, fontWeight: '800', color: colors.text, letterSpacing: 0.3},
+  doneBadge: {
+    backgroundColor: '#DCFCE7', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4,
+  },
+  doneBadgeText: {fontSize: 11, fontWeight: '700', color: '#16A34A'},
+  flightNo: {fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 4},
+  flightRoute: {fontSize: 14, color: colors.text, fontWeight: '500', marginBottom: 4},
+  flightMeta: {fontSize: 12, color: colors.textSecondary, marginBottom: 8},
+  tapRow: {
+    borderTopWidth: 1, borderTopColor: colors.border,
+    paddingTop: 10, marginTop: 2, alignItems: 'flex-end',
+  },
+  tapText: {fontSize: 13, color: colors.primary, fontWeight: '700'},
+
+  doneAllBtn: {marginTop: 8},
 
   rawToggle: {alignItems: 'center', paddingVertical: 8},
   rawToggleText: {fontSize: 12, color: colors.primary, textDecorationLine: 'underline'},

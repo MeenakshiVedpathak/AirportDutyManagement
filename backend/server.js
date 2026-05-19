@@ -35,6 +35,8 @@ app.use('/api/v1/airports', require('./routes/airports'));
 
 app.use('/api/v1/reports', require('./routes/reports'));
 
+app.use('/api/v1/boarding-pass', require('./routes/boardingPass'));
+
 app.get('/', (req, res) => {
   res.send('Airport Duty API Running');
 });

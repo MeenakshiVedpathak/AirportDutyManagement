@@ -20,6 +20,9 @@ export const dutySchema = yup.object({
   airportName: yup.string().required(),
   terminalId: yup.string().required('Terminal is required'),
   terminalName: yup.string().required(),
+  noOfPassengers: yup.string()
+    .matches(/^[1-9][0-9]*$/, 'Must be 1 or more')
+    .required('Number of passengers is required'),
 });
 
 export const addOfficerSchema = yup.object({

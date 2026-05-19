@@ -1,8 +1,7 @@
-import React, {useState, useEffect} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform} from 'react-native';
+import React, {useState, useEffect, useRef} from 'react';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useForm, Controller} from 'react-hook-form';
-import {yupResolver} from '@hookform/resolvers/yup';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSelector, useDispatch} from 'react-redux';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -17,16 +16,20 @@ import WhatsAppMessageModal from '../../../components/common/WhatsAppMessageModa
 import {colors} from '../../../theme/colors';
 import {OFFICE_TYPES, ARRIVAL_DEPARTURE, CITIES} from '../../../constants/dutyFormFields';
 import {getDayFromDate, toAPIDate, toAPITime} from '../../../utils/dateUtils';
+import {setCreatedScanIndex} from '../../../utils/pendingDutyStore';
 import moment from 'moment';
 
 const OfficerCreateDutyScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const prefill = route.params?.prefill || null;
   const dispatch = useDispatch();
   const {addDuty} = useDuties();
   const {user} = useSelector(state => state.auth);
   const {list: airports, terminals} = useSelector(state => state.airports);
+  const scrollRef = useRef(null);
+
+  const [activePrefill, setActivePrefill] = useState(route.params?.prefill || null);
+
   const [createdDuty, setCreatedDuty] = useState(null);
   const [msgVisible, setMsgVisible] = useState(false);
 
@@ -34,14 +37,13 @@ const OfficerCreateDutyScreen = () => {
   const [showReportingTimePicker, setShowReportingTimePicker] = useState(false);
   const [showFlightTimePicker, setShowFlightTimePicker] = useState(false);
 
-  const initDate = prefill?.date ? new Date(prefill.date) : new Date();
-  const initFlightTime = prefill?.flightTime
-    ? moment(prefill.flightTime, 'HH:mm').toDate()
-    : new Date();
-
-  const [selectedDate, setSelectedDate] = useState(initDate);
+  const [selectedDate, setSelectedDate] = useState(
+    activePrefill?.date ? new Date(activePrefill.date) : new Date(),
+  );
   const [reportingTime, setReportingTime] = useState(new Date());
-  const [flightTime, setFlightTime] = useState(initFlightTime);
+  const [flightTime, setFlightTime] = useState(
+    activePrefill?.flightTime ? moment(activePrefill.flightTime, 'HH:mm').toDate() : new Date(),
+  );
 
   const [officeTypeOpen, setOfficeTypeOpen] = useState(false);
   const [fromOpen, setFromOpen] = useState(false);
@@ -50,42 +52,102 @@ const OfficerCreateDutyScreen = () => {
   const [airportOpen, setAirportOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
 
+  const dutyResolver = async values => {
+    try {
+      const valid = await dutySchema.validate(values, {abortEarly: false});
+      return {values: valid, errors: {}};
+    } catch (e) {
+      if (e.name === 'ValidationError' && e.inner?.length) {
+        const errs = {};
+        for (const err of e.inner) {
+          if (err.path && !errs[err.path]) {
+            errs[err.path] = {message: err.message, type: 'validation'};
+          }
+        }
+        return {values: {}, errors: errs};
+      }
+      Alert.alert('Validation Error', e?.message || 'Unknown error — check the form');
+      return {values: {}, errors: {}};
+    }
+  };
+
   const {control, handleSubmit, setValue, watch, formState: {errors, isSubmitting}} = useForm({
-    resolver: yupResolver(dutySchema),
+    resolver: dutyResolver,
     defaultValues: {
       officerId: user?.id?.toString() || '',
       officerName: user?.name || '',
-      date: prefill?.date || toAPIDate(new Date()),
+      date: activePrefill?.date || toAPIDate(new Date()),
       reportingTime: toAPITime(new Date()),
       officeType: '',
-      from: prefill?.from || '',
-      to: prefill?.to || '',
-      flightNo: prefill?.flightNo || '',
-      flightTime: prefill?.flightTime || toAPITime(new Date()),
-      arrivalDeparture: prefill?.arrivalDeparture || 'DEPARTURE',
+      from: activePrefill?.from || '',
+      to: activePrefill?.to || '',
+      flightNo: activePrefill?.flightNo || '',
+      flightTime: activePrefill?.flightTime || toAPITime(new Date()),
+      arrivalDeparture: activePrefill?.arrivalDeparture || 'DEPARTURE',
       airportId: '', airportName: '', terminalId: '', terminalName: '',
+      noOfPassengers: '1',
     },
   });
 
   const dateValue = watch('date');
   const dayValue = dateValue ? getDayFromDate(dateValue) : '';
 
+  // Sync activePrefill when route.params.prefill changes.
+  // useState only initialises once at mount; this effect picks up subsequent navigate() calls.
   useEffect(() => {
-    if (!prefill) return;
-    if (prefill.date) {
-      const d = new Date(prefill.date);
+    if (route.params?.prefill) {
+      setActivePrefill(route.params.prefill);
+    }
+  }, [route.params?.prefill]);
+
+  // Apply scan-extracted fields to the form whenever activePrefill changes.
+  // Runs on initial load AND when transitioning to step 2.
+  useEffect(() => {
+    if (!activePrefill) return;
+    if (activePrefill.date) {
+      const d = new Date(activePrefill.date);
       setSelectedDate(d);
-      setValue('date', prefill.date);
+      setValue('date', activePrefill.date);
     }
-    if (prefill.flightTime) {
-      setFlightTime(moment(prefill.flightTime, 'HH:mm').toDate());
-      setValue('flightTime', prefill.flightTime);
+    if (activePrefill.flightTime) {
+      setFlightTime(moment(activePrefill.flightTime, 'HH:mm').toDate());
+      setValue('flightTime', activePrefill.flightTime);
     }
-    if (prefill.from) setValue('from', prefill.from);
-    if (prefill.to) setValue('to', prefill.to);
-    if (prefill.flightNo) setValue('flightNo', prefill.flightNo);
-    if (prefill.arrivalDeparture) setValue('arrivalDeparture', prefill.arrivalDeparture);
-  }, [prefill]);
+    if (activePrefill.from) setValue('from', activePrefill.from);
+    if (activePrefill.to) setValue('to', activePrefill.to);
+    if (activePrefill.flightNo) setValue('flightNo', activePrefill.flightNo);
+    if (activePrefill.arrivalDeparture) setValue('arrivalDeparture', activePrefill.arrivalDeparture);
+  }, [activePrefill]);
+
+  // Auto-select airport from activePrefill.from city.
+  useEffect(() => {
+    if (!activePrefill?.from || airports.length === 0) return;
+    const fromCity = activePrefill.from.toLowerCase();
+    const matched = airports.find(a => {
+      if (!a.isActive) return false;
+      const name = (a.name || '').toLowerCase();
+      const city = (a.city || '').toLowerCase();
+      const code = (a.code || '').toLowerCase();
+      return name.includes(fromCity) || city.includes(fromCity) ||
+             fromCity.includes(name)  || fromCity.includes(city) ||
+             fromCity.includes(code);
+    });
+    if (matched) handleAirportChange(matched.id);
+  }, [activePrefill?.from, airports]);
+
+  // Auto-select terminal from activePrefill.terminal number.
+  useEffect(() => {
+    if (!activePrefill?.terminal || terminals.length === 0) return;
+    const tNum = String(activePrefill.terminal);
+    const tRe = new RegExp(`\\b${tNum}\\b`);
+    const matched = terminals.find(t => {
+      if (!t.isActive) return false;
+      return tRe.test(t.name || '') || tRe.test(t.code || '');
+    });
+    if (!matched) return;
+    setValue('terminalId', matched.id);
+    setValue('terminalName', matched.name || '');
+  }, [activePrefill?.terminal, terminals]);
 
   useEffect(() => {
     dispatch(fetchAirportsStart());
@@ -110,11 +172,34 @@ const OfficerCreateDutyScreen = () => {
     }
   };
 
+  const onFormError = errs => {
+    const msgs = Object.entries(errs).map(([k, v]) => `${k}: ${v.message}`).join('\n');
+    Alert.alert('Please fix these fields', msgs);
+  };
+
   const onSubmit = async data => {
-    const result = await addDuty(data);
-    if (result) {
+    try {
+      const result = await addDuty(data);
+      if (!result) {
+        Alert.alert('Save Failed', 'Could not save the duty. Check your connection and try again.');
+        return;
+      }
       setCreatedDuty(result);
       setMsgVisible(true);
+    } catch (e) {
+      Alert.alert('Unexpected Error', e?.message || 'Something went wrong. Please try again.');
+    }
+  };
+
+  const handleModalClose = () => {
+    setMsgVisible(false);
+    if (route.params?.returnToScan) {
+      // Signal BoardingPassScan (via module-level store) which card is done,
+      // then go back — more reliable than passing params through navigation.
+      setCreatedScanIndex(route.params?.scanIndex);
+      navigation.goBack();
+    } else {
+      navigation.navigate('Dashboard');
     }
   };
 
@@ -122,11 +207,14 @@ const OfficerCreateDutyScreen = () => {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>Create Duty</Text>
-        <TouchableOpacity style={styles.scanHeaderBtn} onPress={() => navigation.navigate('BoardingPassScan')}>
-          <Text style={styles.scanHeaderText}>📷 Scan Pass</Text>
-        </TouchableOpacity>
+        {!route.params?.returnToScan && (
+          <TouchableOpacity style={styles.scanHeaderBtn} onPress={() => navigation.navigate('BoardingPassScan')}>
+            <Text style={styles.scanHeaderText}>📷 Scan Pass</Text>
+          </TouchableOpacity>
+        )}
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
 
         <AppInput label="Subordinate Name" value={user?.name || ''} editable={false} style={styles.readOnly} />
 
@@ -179,6 +267,17 @@ const OfficerCreateDutyScreen = () => {
         )} />
         {errors.arrivalDeparture && <Text style={styles.err}>{errors.arrivalDeparture.message}</Text>}
 
+        <Controller control={control} name="noOfPassengers" render={({field: {onChange, value}}) => (
+          <AppInput
+            label="No. of Passengers"
+            value={String(value ?? '1')}
+            onChangeText={v => onChange(v.replace(/[^0-9]/g, '') || '1')}
+            keyboardType="numeric"
+            placeholder="1"
+            error={errors.noOfPassengers?.message}
+          />
+        )} />
+
         <Text style={styles.lbl}>Airport</Text>
         <Controller control={control} name="airportId" render={({field: {value}}) => (
           <DropDownPicker open={airportOpen} setOpen={setAirportOpen} value={value}
@@ -205,7 +304,7 @@ const OfficerCreateDutyScreen = () => {
         )} />
         {errors.terminalId && <Text style={styles.err}>{errors.terminalId.message}</Text>}
 
-        <AppButton title="Submit Duty" onPress={handleSubmit(onSubmit)} loading={isSubmitting} style={styles.btn} />
+        <AppButton title="Submit Duty" onPress={handleSubmit(onSubmit, onFormError)} loading={isSubmitting} style={styles.btn} />
       </ScrollView>
 
       <WhatsAppMessageModal
@@ -214,7 +313,7 @@ const OfficerCreateDutyScreen = () => {
         senderName={user?.name || ''}
         senderPhone={user?.phone || ''}
         subordinatePhone={user?.phone || ''}
-        onClose={() => { setMsgVisible(false); navigation.navigate('Dashboard'); }}
+        onClose={handleModalClose}
       />
     </SafeAreaView>
   );
@@ -226,6 +325,9 @@ const styles = StyleSheet.create({
   title: {fontSize: 20, fontWeight: '700', color: colors.text},
   scanHeaderBtn: {backgroundColor: colors.primary + '15', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: colors.primary + '40'},
   scanHeaderText: {fontSize: 13, color: colors.primary, fontWeight: '600'},
+  chainBadge: {backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: '#F59E0B'},
+  chainBadgeArrival: {backgroundColor: '#F0FDF4', borderColor: '#16A34A'},
+  chainBadgeText: {fontSize: 12, color: '#92400E', fontWeight: '700'},
   content: {padding: 16, paddingBottom: 40},
   lbl: {fontSize: 13, fontWeight: '500', color: colors.textSecondary, marginBottom: 5, marginTop: 8},
   row: {flexDirection: 'row', gap: 10, marginBottom: 8},

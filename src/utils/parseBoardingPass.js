@@ -42,15 +42,41 @@ function normalizeText(raw) {
   return raw
     .replace(/\r/g, '\n')
     .replace(/[ \t]+/g, ' ')
+    .replace(/\bAl(\d)/g, 'AI$1')  // OCR misread: lowercase l → I  (e.g. "Al1851" → "AI1851")
     .toUpperCase();
 }
 
 function extractFlightNumber(text) {
   const prefixPattern = AIRLINE_PREFIXES.join('|');
-  // Matches: "6E 2341", "6E-2341", "6E2341", "AI 302"
-  const re = new RegExp(`\\b(${prefixPattern})[\\s\\-]?(\\d{3,4})\\b`, 'g');
-  const match = re.exec(text);
-  if (match) return `${match[1]} ${match[2]}`;
+
+  // Step 1 — labelled context: any ticket that has an explicit "Flight / Flt" label
+  // before the code works here — IRCTC, Balmer Lawrie, MMT, Cleartrip, EaseMyTrip, etc.
+  // Label variants handled: "Flight", "Flt", "Flight No", "Flight No.", "Flight Number",
+  // "Flight #", "Flt No", "Flt No.", "Flt Number".
+  // Separator variants: colon, dot, space, or newline (OCR sometimes breaks label & value).
+  const labelRe = new RegExp(
+    `(?:FLIGHT|FLT)\\.?\\s*(?:NO\\.?|NUMBER|#)?\\s*[:.\\s]\\s*(${prefixPattern})[\\s\\-]?(\\d{3,4})(?!\\d)`,
+    'i',
+  );
+  const labelMatch = text.match(labelRe);
+  if (labelMatch) return `${labelMatch[1].toUpperCase()} ${labelMatch[2]}`;
+
+  // Step 2 — unlabelled context: boarding passes (IndiGo, Air India, Vistara, SpiceJet,
+  // Akasa, GoFirst…) print the code in a dedicated box with no label.
+  // (?<![A-Z]) blocks mid-word matches like "INDIA" where a letter precedes the code.
+  // Digits before the code are allowed — OCR often merges a preceding number (e.g. FFN
+  // "218032881AI1851") with no space. Transaction IDs are already rejected because they
+  // have 5+ digits after the prefix, which fails the \d{3,4}(?!\d) constraint.
+  const bareRe = new RegExp(`(?<![A-Z])(${prefixPattern})[\\s\\-]?(\\d{3,4})(?!\\d)`, 'g');
+  const bareMatch = bareRe.exec(text);
+  if (bareMatch) return `${bareMatch[1]} ${bareMatch[2]}`;
+
+  // Step 3 — OCR misread fallback: on small-font tickets OCR frequently reads the
+  // capital letter I as digit 1, turning "AI-633" into "A1-633". toUpperCase() can't
+  // fix this because "1" is already a digit, so we catch it explicitly here.
+  const a1Match = text.match(/(?<![A-Z])A1[\s\-]?(\d{3,4})(?!\d)/);
+  if (a1Match) return `AI ${a1Match[1]}`;
+
   return null;
 }
 
@@ -90,42 +116,44 @@ function extractDate(text) {
 }
 
 function extractTime(text) {
-  // Priority 1: STD / DEP / DEPARTURE / DEPARTURE TIME / SCHEDULED
-  // Use [^\d\n]{0,20} to avoid crossing line boundaries or consuming too much text.
-  // Supports both "09:15" and "0915" (no-colon) formats via :? in the capture.
-  const depRe = /(?:STD|DEP(?:ARTURE)?(?:\s*TIME)?|SCHED(?:ULED)?)[^\d\n]{0,20}(\d{1,2}):?(\d{2})/;
+  function fmtTime(h, m) {
+    const hh = parseInt(h, 10), mm = parseInt(m, 10);
+    if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59)
+      return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    return null;
+  }
+
+  // Step 1: departure-related labels — works for any format that labels the field.
+  // Labels covered: STD, ETD, DEP, DEPT, DEPARTURE, DEPARTURE TIME, DEPARTS, SCHEDULED.
+  // \s*[:\s]\s*\n?\s* allows the time to appear on the NEXT LINE after the label —
+  // OCR on table-based tickets (IRCTC, Balmer Lawrie, OTA e-tickets) frequently splits
+  // the column header and its value onto separate lines.
+  const depRe = /(?:STD|ETD|DEPT?(?:ARTURE)?(?:\s*TIME)?|DEPARTS?|SCHED(?:ULED)?(?:\s*DEP(?:ARTURE)?)?)\s*[:\s]\s*\n?\s*[^\d\n]{0,15}(\d{1,2}):?(\d{2})(?!\d)/;
   const depMatch = text.match(depRe);
   if (depMatch) {
-    const h = parseInt(depMatch[1], 10);
-    const m = parseInt(depMatch[2], 10);
-    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    }
+    const t = fmtTime(depMatch[1], depMatch[2]);
+    if (t) return t;
   }
 
-  // Priority 2: BOARDING TIME (lower priority than departure labels)
-  const boardingRe = /BOARDING\s*TIME[^\d\n]{0,20}(\d{1,2}):?(\d{2})/;
-  const boardingMatch = text.match(boardingRe);
-  if (boardingMatch) {
-    const h = parseInt(boardingMatch[1], 10);
-    const m = parseInt(boardingMatch[2], 10);
-    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    }
+  // Step 2: boarding time (lower priority — it's always earlier than departure).
+  // "BOARDING" alone is enough; "BOARDING TIME" is also caught.
+  const boardRe = /BOARDING\s*(?:TIME)?\s*[:\s]\s*\n?\s*[^\d\n]{0,15}(\d{1,2}):?(\d{2})(?!\d)/;
+  const boardMatch = text.match(boardRe);
+  if (boardMatch) {
+    const t = fmtTime(boardMatch[1], boardMatch[2]);
+    if (t) return t;
   }
 
-  // Fallback: scan all HH:MM patterns, return the first plausible one.
-  // E-tickets (IRCTC, Balmer Laurie) list departure before arrival in their tables.
-  // Skip times that immediately follow a date (DD/MM/YYYY or YYYY-MM-DD) — those are
-  // booking/transaction timestamps, not flight times.
+  // Step 3: fallback — scan every HH:MM in the text and return the first plausible one.
+  // Colon is required here: without it, "2026" would match as 20:26, "633" as 6:33, etc.
+  // Skip times that immediately follow a date — those are booking/transaction timestamps.
   const all = [...text.matchAll(/\b(\d{1,2}):(\d{2})\b/g)];
-  for (let i = 0; i < all.length; i++) {
-    const h = parseInt(all[i][1], 10);
-    const m = parseInt(all[i][2], 10);
-    if (h < 0 || h > 23 || m < 0 || m > 59) continue;
-    const before = text.substring(Math.max(0, all[i].index - 15), all[i].index);
+  for (const match of all) {
+    const t = fmtTime(match[1], match[2]);
+    if (!t) continue;
+    const before = text.substring(Math.max(0, match.index - 15), match.index);
     if (/\d{2,4}[-\/]\d{2}[-\/]\d{2,4},?\s*$/.test(before)) continue;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return t;
   }
   return null;
 }
@@ -169,12 +197,20 @@ function extractCities(text) {
   }
 
   // Step 3: look for FROM/TO or ORIGIN/DESTINATION labels
+  // Only accept results that are known city names — prevents "Www" (FROM WWW.airindia.com)
+  // and "Moca" (TO MOCA'S Passenger Charter) from leaking in as city names.
   const fromMatch = text.match(/(?:FROM|ORIGIN|DEPARTS?)[:\s]+([A-Z]{3,})/);
   const toMatch = text.match(/(?:TO|DEST(?:INATION)?|ARRIVES?)[:\s]+([A-Z]{3,})/);
   if (fromMatch && toMatch) {
     const fromCity = IATA_TO_CITY[fromMatch[1]] || fromMatch[1].charAt(0) + fromMatch[1].slice(1).toLowerCase();
     const toCity = IATA_TO_CITY[toMatch[1]] || toMatch[1].charAt(0) + toMatch[1].slice(1).toLowerCase();
-    return {from: fromCity, to: toCity};
+    const knownCities = new Set([
+      ...CITY_NAMES,
+      ...Object.values(IATA_TO_CITY).map(c => c.toLowerCase()),
+    ]);
+    if (knownCities.has(fromCity.toLowerCase()) && knownCities.has(toCity.toLowerCase())) {
+      return {from: fromCity, to: toCity};
+    }
   }
 
   return {from: null, to: null};
@@ -185,18 +221,201 @@ function extractArrivalDeparture(text) {
   return 'DEPARTURE'; // boarding passes are departure by default
 }
 
+function extractTerminalNumber(text) {
+  // Matches "Terminal: 2", "Terminal 2", "Terminal-2", "TERMINAL 1" etc.
+  const m = text.match(/\bTERMINAL\s*[:\-]?\s*(\d+)/i);
+  return m ? m[1] : null;
+}
+
+// Scans text for adjacent city-name pairs that appear within windowSize chars of each other.
+// Returns an ordered array of {from, to} pairs — index 0 = first route, 1 = second route, etc.
+// Used to recover city pairs from the pre-flight header block on table-format e-tickets
+// (Air India, IRCTC) where each row lists the route before the flight number column.
+function findNearbyPairs(text, windowSize = 150) {
+  const lower = text.toLowerCase();
+  const occ = [];
+
+  for (const name of CITY_NAMES) {
+    let start = 0, idx;
+    while ((idx = lower.indexOf(name, start)) !== -1) {
+      const canonical = CITY_ALIAS[name] || (name.charAt(0).toUpperCase() + name.slice(1));
+      occ.push({city: canonical, idx, end: idx + name.length});
+      start = idx + name.length;
+    }
+  }
+  // Also scan CITY_ALIAS keys (multi-word airport name fragments like "indira gandhi")
+  for (const [alias, canonical] of Object.entries(CITY_ALIAS)) {
+    let start = 0, idx;
+    while ((idx = lower.indexOf(alias, start)) !== -1) {
+      occ.push({city: canonical, idx, end: idx + alias.length});
+      start = idx + alias.length;
+    }
+  }
+
+  occ.sort((a, b) => a.idx - b.idx);
+
+  // Dedup: if two entries map to the same city and are within 30 chars of each other
+  // (e.g. "MUMBAI" at pos 0 and "CHHATRAPATI" at pos 7 both → Mumbai) keep only the first.
+  // Without this, a pair like {Mumbai, Delhi} would be emitted twice before {Delhi, Mumbai}.
+  const deduped = [];
+  for (const entry of occ) {
+    const last = deduped[deduped.length - 1];
+    if (last && last.city === entry.city && entry.idx - last.end < 30) continue;
+    deduped.push(entry);
+  }
+
+  const pairs = [];
+  const usedIdx = new Set();
+  for (let i = 0; i < deduped.length; i++) {
+    if (usedIdx.has(i)) continue;
+    const o1 = deduped[i];
+    for (let j = i + 1; j < deduped.length; j++) {
+      if (usedIdx.has(j)) continue;
+      const o2 = deduped[j];
+      if (o2.idx - o1.end > windowSize) break;
+      if (o1.city !== o2.city) {
+        pairs.push({from: o1.city, to: o2.city});
+        usedIdx.add(i);
+        usedIdx.add(j);
+        break;
+      }
+    }
+  }
+  return pairs;
+}
+
+function parseSegment(text) {
+  return {
+    flightNo: extractFlightNumber(text),
+    date: extractDate(text),
+    flightTime: extractTime(text),
+    ...extractCities(text),
+    arrivalDeparture: extractArrivalDeparture(text),
+    terminal: extractTerminalNumber(text),
+  };
+}
+
 /**
- * Parses OCR text from a boarding pass into duty form fields.
- * Handles IndiGo (6E), Air India (AI), Vistara (UK), SpiceJet (SG), Akasa (QP), etc.
+ * Parses OCR text and returns ALL flight segments found (e.g. round-trip or
+ * connecting-flight e-tickets contain 2+ rows). Always returns at least one item.
+ * The scan screen uses this so it can show a flight picker when count > 1.
+ *
+ * Key insight: many e-ticket formats (Air India, IRCTC) place city names BEFORE
+ * the flight number in the OCR stream, while times appear AFTER it. We therefore
+ * use two separate chunks per segment:
+ *   citiesChunk — text from the previous flight's end up to this flight's start
+ *   timesChunk  — text from this flight's end up to the next flight's start
  */
-export function parseBoardingPass(rawOcrText) {
+export function parseAllFlights(rawOcrText) {
   const text = normalizeText(rawOcrText);
+  const prefixPattern = [...AIRLINE_PREFIXES, 'A1'].join('|');
 
-  const flightNo = extractFlightNumber(text);
-  const date = extractDate(text);
-  const flightTime = extractTime(text);
-  const {from, to} = extractCities(text);
-  const arrivalDeparture = extractArrivalDeparture(text);
+  // Find every flight-number occurrence in the full text.
+  // A1 is included so OCR misreads of "AI" (I→1) are also detected.
+  const flightRe = new RegExp(
+    `(?<![A-Z])(${prefixPattern})[\\s\\-]?(\\d{3,4})(?!\\d)`,
+    'g',
+  );
+  const allMatches = [...text.matchAll(flightRe)];
 
-  return {flightNo, date, flightTime, from, to, arrivalDeparture};
+  // Deduplicate: boarding-pass stubs repeat the same code a few chars apart.
+  const unique = [];
+  for (const m of allMatches) {
+    const prefix = m[1] === 'A1' ? 'AI' : m[1];
+    const flightNo = `${prefix} ${m[2]}`;
+    const matchEnd = m.index + m[0].length;
+    const last = unique[unique.length - 1];
+    if (last && last.flightNo === flightNo && m.index - last.pos < 120) continue;
+    unique.push({flightNo, pos: m.index, end: matchEnd});
+  }
+
+  // Nothing found — parse the whole text as one segment.
+  if (unique.length === 0) return [parseSegment(text)];
+
+  // Exactly one flight found — use before/after chunks so cities and times come
+  // from the correct side of the flight number (same strategy as multi-segment).
+  if (unique.length === 1) {
+    const {flightNo, pos, end} = unique[0];
+    const citiesChunk = text.substring(0, pos);
+    const timesChunk  = text.substring(end);
+    const cities = extractCities(citiesChunk);
+    const finalCities = (cities.from && cities.to) ? cities : extractCities(text);
+    return [{
+      flightNo,
+      date:             extractDate(timesChunk) ?? extractDate(text),
+      flightTime:       extractTime(timesChunk),
+      ...finalCities,
+      arrivalDeparture: extractArrivalDeparture(text),
+      terminal:         extractTerminalNumber(citiesChunk) ?? extractTerminalNumber(timesChunk),
+    }];
+  }
+
+  // Table-format fallback: some e-tickets (Air India, IRCTC) list ALL flight numbers
+  // together, then ALL departure times together (separate OCR columns).
+  // Collect times/dates in order from the section after the last flight number,
+  // stopping before the ARRIVAL column (which holds arrival times we don't want).
+  const afterAll  = text.substring(unique[unique.length - 1].end);
+  const arrIdx    = afterAll.search(/\bARRIVAL\b/);
+  const depSection = arrIdx > -1 ? afterAll.substring(0, arrIdx) : afterAll;
+
+  const tableTimes = [];
+  for (const m of depSection.matchAll(/\b(\d{1,2}):(\d{2})\b/g)) {
+    const h = parseInt(m[1], 10), mn = parseInt(m[2], 10);
+    if (h >= 0 && h <= 23 && mn >= 0 && mn <= 59)
+      tableTimes.push(`${String(h).padStart(2, '0')}:${String(mn).padStart(2, '0')}`);
+  }
+
+  const tableDates = [];
+  const tdRe = /\b(\d{1,2})[\s\-]*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\s\-]*(\d{2,4})\b/g;
+  for (const m of depSection.matchAll(tdRe)) {
+    let yr = m[3];
+    if (yr.length === 2) yr = '20' + yr;
+    tableDates.push(`${yr}-${MONTH_MAP[m[2]]}-${String(m[1]).padStart(2, '0')}`);
+  }
+
+  // Pre-compute city pairs from the header block that precedes all flight numbers.
+  // On table-format e-tickets each row lists the route (e.g. MUMBAI ... DELHI) before
+  // the flight-number column, so the pre-flight text holds all pairs in route order.
+  const preFlight = text.substring(0, unique[0].pos);
+  const cityPairs = findNearbyPairs(preFlight);
+
+  // Multi-segment: per segment, cities come BEFORE the flight code and
+  // dates/times come AFTER it. Use separate slices for each.
+  return unique.map(({flightNo, pos, end}, i) => {
+    const prevEnd   = i === 0 ? 0 : unique[i - 1].end;
+    const nextStart = unique[i + 1]?.pos ?? text.length;
+
+    const citiesChunk = text.substring(prevEnd, pos);
+    const timesChunk  = text.substring(end, nextStart);
+
+    const cities = extractCities(citiesChunk);
+    const finalCities = (cities.from && cities.to)
+      ? cities
+      : (cityPairs[i] ?? {from: null, to: null});
+
+    // Per-chunk extraction (works for standard boarding-pass format)
+    let flightTime = extractTime(timesChunk);
+    let date       = extractDate(timesChunk);
+
+    // Table fallback: use sequentially collected times/dates when chunks are empty
+    if (!flightTime && tableTimes.length >= unique.length) flightTime = tableTimes[i] ?? null;
+    if (!date       && tableDates.length >= unique.length) date       = tableDates[i] ?? null;
+    date = date ?? extractDate(text);
+
+    const terminal = extractTerminalNumber(citiesChunk) ?? extractTerminalNumber(timesChunk);
+
+    return {
+      flightNo,
+      date,
+      flightTime,
+      ...finalCities,
+      arrivalDeparture: extractArrivalDeparture(citiesChunk + timesChunk),
+      terminal,
+    };
+  });
+}
+
+/** Backward-compatible single-result parser used by CreateDuty prefill. */
+export function parseBoardingPass(rawOcrText) {
+  return parseAllFlights(rawOcrText)[0];
 }

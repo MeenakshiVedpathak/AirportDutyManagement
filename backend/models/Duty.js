@@ -23,6 +23,7 @@ const dutySchema = new mongoose.Schema(
     terminalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Terminal', required: true },
     terminalName: { type: String, required: true },
     arrivalDeparture: { type: String, enum: ['ARRIVAL', 'DEPARTURE'], required: true },
+    noOfPassengers: { type: Number, default: 1, min: 1 },
     status: {
       type: String,
       enum: ['UPCOMING', 'COMPLETED', 'CANCELLED'],
