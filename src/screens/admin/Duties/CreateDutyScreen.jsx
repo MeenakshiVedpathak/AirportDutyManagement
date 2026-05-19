@@ -267,8 +267,8 @@ const CreateDutyScreen = () => {
         <Controller control={control} name="noOfPassengers" render={({field: {onChange, value}}) => (
           <AppInput
             label="No. of Passengers"
-            value={String(value ?? '1')}
-            onChangeText={v => onChange(v.replace(/[^0-9]/g, '') || '1')}
+            value={String(value ?? '')}
+            onChangeText={v => onChange(v.replace(/[^0-9]/g, ''))}
             keyboardType="numeric"
             placeholder="1"
             error={errors.noOfPassengers?.message}

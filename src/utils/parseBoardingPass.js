@@ -238,6 +238,13 @@ function extractPassengerCount(text) {
   for (const m of text.matchAll(/\b([A-Z]+\/[A-Z]+)\s+(?:MRS|MISS|DR|MR|MS)/g)) {
     nameSet.add(m[1]);
   }
+  // OCR misread: "/" read as space → "LASTNAME/FIRSTNAME MR" → "LASTNAME FIRSTNAME MR"
+  // Both parts need 4+ chars to exclude 3-char airport codes (BOM, DEL, AMD, etc.)
+  if (nameSet.size < 2) {
+    for (const m of text.matchAll(/\b([A-Z]{4,})[^\S\n]+([A-Z]{4,})[^\S\n]+(?:MRS|MISS|DR|MR|MS)/g)) {
+      nameSet.add(m[1] + '/' + m[2]);
+    }
+  }
   if (nameSet.size >= 2) return nameSet.size;
 
   // Signal 2 — IndiGo itinerary PDFs (e.g. W8MC5M):
