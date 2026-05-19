@@ -264,8 +264,11 @@ function extractPassengerCount(text) {
   // [^\S\n]+ (space/tab only, no newline) keeps each match on a single line so that
   // "MS DHANSHREE DAMLE\nMANAGE BOOKING" doesn't produce two different entries.
   // Same name repeated across the pass deduplicates to 1 → single-passenger stays 1.
+  // First word allows a single-letter initial (e.g. "MR N JAYASANKAR").
+  // Last word requires 3+ letters to avoid matching stray abbreviations.
+  // [^\S\n]+ keeps each match on one line so trailing footer words don't bleed in.
   const plainNames = new Set();
-  for (const m of text.matchAll(/\b(MRS?|MS|MISS|DR)[^\S\n]+((?:[A-Z]{2,}[^\S\n]+){1,3}[A-Z]{2,})/g)) {
+  for (const m of text.matchAll(/\b(MRS?|MS|MISS|DR)[^\S\n]+([A-Z]+[^\S\n]+(?:[A-Z]{2,}[^\S\n]+){0,2}[A-Z]{3,})/g)) {
     plainNames.add(m[1] + ' ' + m[2].trim());
   }
   if (plainNames.size >= 2) return plainNames.size;
