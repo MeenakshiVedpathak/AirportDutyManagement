@@ -41,6 +41,7 @@ const MONTH_MAP = {
 function normalizeText(raw) {
   return raw
     .replace(/\r/g, '\n')
+    .replace(/[ ­]/g, ' ')  // non-breaking space + soft hyphen → regular space
     .replace(/[ \t]+/g, ' ')
     .replace(/\bAl(\d)/g, 'AI$1')  // OCR misread: lowercase l → I  (e.g. "Al1851" → "AI1851")
     .toUpperCase();
@@ -229,24 +230,33 @@ function extractTerminalNumber(text) {
 
 function extractPassengerCount(text) {
   // Signal 1 — IndiGo/SpiceJet web boarding passes:
-  // Each passenger stub is printed as LASTNAME/FIRSTNAME followed by a salutation.
-  // Two distinct name tokens = two different people on the same flight.
-  // (Seq numbers are NOT used — a round-trip single-passenger PDF also has two
-  //  different Seq values, making them an unreliable discriminator.)
+  // Each passenger stub: LASTNAME/FIRSTNAME followed by a salutation.
+  // pdf-parse sometimes merges the salutation with the next word (e.g. "MADHUK/ARTI MSMUMBAI")
+  // so no trailing \b — LASTNAME/FIRSTNAME + space + salutation token is sufficient.
+  // Salutations ordered longest-first to prevent MR matching inside MRS.
   const nameSet = new Set();
-  for (const m of text.matchAll(/\b([A-Z]+\/[A-Z]+)\s+(?:MR|MS|MRS|MISS|DR)\b/g)) {
+  for (const m of text.matchAll(/\b([A-Z]+\/[A-Z]+)\s+(?:MRS|MISS|DR|MR|MS)/g)) {
     nameSet.add(m[1]);
   }
   if (nameSet.size >= 2) return nameSet.size;
 
   // Signal 2 — IndiGo itinerary PDFs (e.g. W8MC5M):
-  // Each passenger gets their own printed page, each opening with a
-  // "Passenger Information" section header. Count those headers, but stop
-  // before the T&C section where the word "passenger" appears many times.
+  // Each passenger gets their own printed page starting with "Passenger Information".
+  // Stop before T&C section where "passenger" appears many times.
   const termsIdx = text.search(/\bTERMS\s*(?:&|AND)\s*CONDITIONS\b/);
   const body = termsIdx > -1 ? text.substring(0, termsIdx) : text;
   const paxSections = [...body.matchAll(/\bPASSENGER\s+INFORMATION\b/g)];
   if (paxSections.length >= 2) return paxSections.length;
+
+  // Signal 3 — GDS / OTA e-tickets (Balmer Lawrie, IRCTC, MakeMyTrip, etc.):
+  // Traveller table rows: pdf-parse merges the Type column directly onto the name
+  // (e.g. "MR SUBHAKANTA SAHUADTBOM-IXR..."). Count distinct title+name combos;
+  // Set deduplicates if the ticket content is printed twice (Balmer Lawrie PDFs).
+  const paxTitles = new Set();
+  for (const m of text.matchAll(/\b(MRS?|MS|MISS|DR)\s+([A-Z][A-Z ]+?)(?=ADT|CHD|INF)/g)) {
+    paxTitles.add(m[1] + ' ' + m[2].trim());
+  }
+  if (paxTitles.size >= 2) return paxTitles.size;
 
   return 1;
 }
