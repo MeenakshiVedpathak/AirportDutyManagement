@@ -85,7 +85,7 @@ const OfficerCreateDutyScreen = () => {
       flightTime: activePrefill?.flightTime || toAPITime(new Date()),
       arrivalDeparture: activePrefill?.arrivalDeparture || 'DEPARTURE',
       airportId: '', airportName: '', terminalId: '', terminalName: '',
-      noOfPassengers: '1',
+      noOfPassengers: activePrefill?.noOfPassengers ? String(activePrefill.noOfPassengers) : '1',
     },
   });
 
@@ -118,6 +118,19 @@ const OfficerCreateDutyScreen = () => {
     if (activePrefill.flightNo) setValue('flightNo', activePrefill.flightNo);
     if (activePrefill.arrivalDeparture) setValue('arrivalDeparture', activePrefill.arrivalDeparture);
     if (activePrefill.noOfPassengers) setValue('noOfPassengers', String(activePrefill.noOfPassengers));
+  }, [activePrefill]);
+
+  // Show a one-time popup when the boarding pass scan detected multiple passengers.
+  const paxAlertShown = useRef(false);
+  useEffect(() => {
+    if (!paxAlertShown.current && (activePrefill?.noOfPassengers ?? 1) > 1) {
+      paxAlertShown.current = true;
+      Alert.alert(
+        '✈ Passengers Detected',
+        `${activePrefill.noOfPassengers} passengers were found in the boarding pass scan.\n\nThe count has been auto-filled. You can edit it if needed.`,
+        [{text: 'Got it'}],
+      );
+    }
   }, [activePrefill]);
 
   // Auto-select airport from activePrefill.from city.
