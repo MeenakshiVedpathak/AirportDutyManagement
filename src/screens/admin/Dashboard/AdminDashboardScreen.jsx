@@ -10,7 +10,6 @@ import DutyCard from '../../../components/common/DutyCard';
 import EmptyState from '../../../components/common/EmptyState';
 import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
-import {getTodayISO} from '../../../utils/dateUtils';
 import {DUTY_STATUS} from '../../../constants/dutyStatus';
 
 const getInitials = name => {
@@ -35,10 +34,14 @@ const AdminDashboardScreen = () => {
   const officers = useSelector(state => state.officers.list);
   const {list: duties, fetchDuties, isLoading} = useDuties();
 
-  const todayDuties = duties.filter(d => d.date === getTodayISO());
   const upcoming = duties.filter(d => d.status === DUTY_STATUS.UPCOMING).length;
   const completed = duties.filter(d => d.status === DUTY_STATUS.COMPLETED).length;
   const cancelled = duties.filter(d => d.status === DUTY_STATUS.CANCELLED).length;
+
+  const sortedDuties = [...duties].sort((a, b) => {
+    if (b.date !== a.date) return b.date > a.date ? 1 : -1;
+    return (b.flightTime || '') > (a.flightTime || '') ? 1 : -1;
+  });
 
   useEffect(() => {
     fetchDuties();
@@ -106,17 +109,17 @@ const AdminDashboardScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Today's Duties */}
+        {/* All Duties */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Today's Duties</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Duties')}>
+          <Text style={styles.sectionTitle}>All Duties</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Duties', {screen: 'AllDuties'})}>
             <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
 
-        {todayDuties.length === 0
-          ? <EmptyState icon="📋" title="No duties today" subtitle="All clear for today" />
-          : todayDuties.map(d => (
+        {sortedDuties.length === 0
+          ? <EmptyState icon="📋" title="No duties yet" subtitle="Create the first duty to get started" />
+          : sortedDuties.map(d => (
               <DutyCard key={d.id} duty={d}
                 onPress={() => navigation.navigate('Duties', {screen: 'DutyDetail', params: {dutyId: d.id}})} />
             ))

@@ -11,7 +11,6 @@ import EmptyState from '../../../components/common/EmptyState';
 import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
 import {DUTY_STATUS} from '../../../constants/dutyStatus';
-import {getTodayISO} from '../../../utils/dateUtils';
 
 const getInitials = name => {
   if (!name) return '?';
@@ -26,10 +25,14 @@ const OfficerDashboardScreen = () => {
   const {list: duties, fetchDuties, isLoading} = useDuties();
   useNotifications();
 
-  const todayDuties = duties.filter(d => d.date === getTodayISO());
   const upcoming = duties.filter(d => d.status === DUTY_STATUS.UPCOMING).length;
   const completed = duties.filter(d => d.status === DUTY_STATUS.COMPLETED).length;
   const cancelled = duties.filter(d => d.status === DUTY_STATUS.CANCELLED).length;
+
+  const sortedDuties = [...duties].sort((a, b) => {
+    if (b.date !== a.date) return b.date > a.date ? 1 : -1;
+    return (b.flightTime || '') > (a.flightTime || '') ? 1 : -1;
+  });
 
   useEffect(() => {
     fetchDuties({mine: 'true'});
@@ -76,14 +79,14 @@ const OfficerDashboardScreen = () => {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Today's Duties</Text>
+          <Text style={styles.sectionTitle}>My Duties</Text>
           <TouchableOpacity onPress={() => navigation.navigate('MyDuties')}>
             <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
-        {todayDuties.length === 0
-          ? <EmptyState icon="✈️" title="No duties today" subtitle="Enjoy your day off!" />
-          : todayDuties.map(d => (
+        {sortedDuties.length === 0
+          ? <EmptyState icon="✈️" title="No duties assigned" subtitle="Available duties are in the Duties tab" />
+          : sortedDuties.map(d => (
               <DutyCard key={d.id} duty={d} onPress={() => navigation.navigate('MyDuties', {screen: 'DutyDetail', params: {dutyId: d.id}}, {initial: false})} />
             ))
         }

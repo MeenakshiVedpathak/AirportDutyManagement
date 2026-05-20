@@ -78,7 +78,13 @@ const AdminTabs = () => (
     <Tab.Screen name="Dashboard" component={AdminDashboardScreen}
       options={{tabBarIcon: () => <Text style={{fontSize: 20}}>🏠</Text>}} />
     <Tab.Screen name="Duties" component={DutiesNavigator}
-      options={{tabBarIcon: () => <Text style={{fontSize: 20}}>📋</Text>}} />
+      options={{tabBarIcon: () => <Text style={{fontSize: 20}}>📋</Text>}}
+      listeners={({navigation}) => ({
+        tabPress: e => {
+          e.preventDefault();
+          navigation.navigate('Duties', {screen: 'AllDuties'});
+        },
+      })} />
     <Tab.Screen name="Officers" component={OfficersNavigator}
       options={{tabBarLabel: 'Subordinates', tabBarIcon: () => <Text style={{fontSize: 20}}>👮</Text>}} />
     <Tab.Screen name="Airports" component={AirportsNavigator}

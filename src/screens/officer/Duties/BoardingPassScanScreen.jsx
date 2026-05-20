@@ -87,6 +87,15 @@ const BoardingPassScanScreen = () => {
       setSegments([]);
       setRawText('');
       setDoneIndices(new Set());
+      // base64 length * 0.75 ≈ decoded bytes; reject anything over ~10 MB decoded
+      const approxBytes = (file.base64?.length || 0) * 0.75;
+      if (approxBytes > 10 * 1024 * 1024) {
+        Alert.alert(
+          'PDF Too Large',
+          'This PDF is too large to process. Boarding pass PDFs are usually under 2 MB — please try a smaller file, or scan the boarding pass as a photo instead.',
+        );
+        return;
+      }
       setScanning(true);
       try {
         const text = await extractPdfText(file.base64, file.fileName);
