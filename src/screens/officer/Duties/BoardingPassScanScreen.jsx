@@ -82,19 +82,16 @@ const BoardingPassScanScreen = () => {
       return;
     }
     try {
-      const uri = await FilePicker.pickPdf();
+      const file = await FilePicker.pickPdf();
       setImageUri(null);
       setSegments([]);
       setRawText('');
       setDoneIndices(new Set());
       setScanning(true);
       try {
-        const fileName = uri.split('/').pop() || 'boarding-pass.pdf';
-        const text = await extractPdfText(uri, fileName);
-        console.log('[PDF_TEXT]', text);
+        const text = await extractPdfText(file.base64, file.fileName);
         setRawText(text);
         const found = parseAllFlights(text);
-        console.log('[PDF_PARSED]', JSON.stringify(found));
         setSegments(found);
         if (found.length === 0) {
           Alert.alert('No Flights Found', 'Could not detect flight details in this PDF. Try a clearer boarding pass image instead.');
