@@ -100,6 +100,7 @@ const CreateDutyScreen = () => {
     resolver: dutyResolver,
     defaultValues: {
       officerId: '', officerName: '',
+      travellerName: '', travellerPhone: '',
       date: prefill?.date || toAPIDate(new Date()),
       reportingTime: toAPITime(new Date()),
       guestArrivalTime: null,
@@ -185,35 +186,7 @@ const CreateDutyScreen = () => {
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
 
-        {/* ── Arrival / Departure (top) ── */}
-        <Text style={styles.sectionLabel}>Arrival / Departure</Text>
-        <Controller control={control} name="arrivalDeparture" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={arrDepOpen} setOpen={setArrDepOpen} value={value} setValue={cb => onChange(cb(value))}
-            items={ARRIVAL_DEPARTURE} placeholder="Select Arrival/Departure" style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownList} zIndex={7000} listMode="SCROLLVIEW" />
-        )} />
-        {errors.arrivalDeparture && <Text style={styles.err}>{errors.arrivalDeparture.message}</Text>}
-
-        {/* ── Flight No ── */}
-        <Controller control={control} name="flightNo" render={({field: {onChange, value}}) => (
-          <AppInput label="Flight No" value={value} onChangeText={onChange} placeholder="e.g. 6E 201" autoCapitalize="characters" error={errors.flightNo?.message} />
-        )} />
-
-        {/* ── Flight Time ── */}
-        <Text style={styles.sectionLabel}>Flight Time</Text>
-        <TouchableOpacity style={styles.dateBtn} onPress={() => setShowFlightTimePicker(true)}>
-          <Text style={styles.dateBtnText}>{moment(flightTime).format('HH:mm')}</Text>
-        </TouchableOpacity>
-        {showFlightTimePicker && (
-          <DateTimePicker value={flightTime} mode="time" is24Hour display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(_, t) => {
-              setShowFlightTimePicker(false);
-              if (t) { setFlightTime(t); setValue('flightTime', toAPITime(t)); }
-            }} />
-        )}
-        {errors.flightTime && <Text style={styles.err}>{errors.flightTime.message}</Text>}
-
-        {/* ── Date & Day ── */}
+        {/* ── 1. Date & Day ── */}
         <Text style={styles.sectionLabel}>Date & Day</Text>
         <View style={styles.row}>
           <TouchableOpacity style={[styles.dateBtn, {flex: 2}]} onPress={() => setShowDatePicker(true)}>
@@ -228,7 +201,49 @@ const CreateDutyScreen = () => {
             onChange={(_, d) => { setShowDatePicker(false); if (d) { setSelectedDate(d); setValue('date', toAPIDate(d)); } }} />
         )}
 
-        {/* ── Reporting Time (auto-calculated) ── */}
+        {/* ── 2. Arrival / Departure ── */}
+        <Text style={styles.sectionLabel}>Arrival / Departure</Text>
+        <Controller control={control} name="arrivalDeparture" render={({field: {onChange, value}}) => (
+          <DropDownPicker open={arrDepOpen} setOpen={setArrDepOpen} value={value} setValue={cb => onChange(cb(value))}
+            items={ARRIVAL_DEPARTURE} placeholder="Select Arrival/Departure" style={styles.dropdown}
+            dropDownContainerStyle={styles.dropdownList} zIndex={7000} listMode="SCROLLVIEW" />
+        )} />
+        {errors.arrivalDeparture && <Text style={styles.err}>{errors.arrivalDeparture.message}</Text>}
+
+        {/* ── 3. Flight Time ── */}
+        <Text style={styles.sectionLabel}>Flight Time</Text>
+        <TouchableOpacity style={styles.dateBtn} onPress={() => setShowFlightTimePicker(true)}>
+          <Text style={styles.dateBtnText}>{moment(flightTime).format('HH:mm')}</Text>
+        </TouchableOpacity>
+        {showFlightTimePicker && (
+          <DateTimePicker value={flightTime} mode="time" is24Hour display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(_, t) => {
+              setShowFlightTimePicker(false);
+              if (t) { setFlightTime(t); setValue('flightTime', toAPITime(t)); }
+            }} />
+        )}
+        {errors.flightTime && <Text style={styles.err}>{errors.flightTime.message}</Text>}
+
+        {/* ── 4. Traveller Name (optional) ── */}
+        <Controller control={control} name="travellerName" render={({field: {onChange, value}}) => (
+          <AppInput label="Traveller Name" value={value} onChangeText={onChange}
+            placeholder="Enter traveller's name" autoCapitalize="words"
+            error={errors.travellerName?.message} />
+        )} />
+
+        {/* ── 5. Traveller Mobile No (optional) ── */}
+        <Controller control={control} name="travellerPhone" render={({field: {onChange, value}}) => (
+          <AppInput label="Traveller Mobile No" value={value} onChangeText={onChange}
+            placeholder="10-digit mobile number" keyboardType="phone-pad"
+            error={errors.travellerPhone?.message} />
+        )} />
+
+        {/* ── 6. Flight No ── */}
+        <Controller control={control} name="flightNo" render={({field: {onChange, value}}) => (
+          <AppInput label="Flight No" value={value} onChangeText={onChange} placeholder="e.g. 6E 201" autoCapitalize="characters" error={errors.flightNo?.message} />
+        )} />
+
+        {/* ── 7. Reporting Time (auto-calculated) ── */}
         <Text style={styles.sectionLabel}>
           Reporting Time at Airport
           <Text style={styles.autoHint}>
@@ -244,7 +259,7 @@ const CreateDutyScreen = () => {
         )}
         {errors.reportingTime && <Text style={styles.err}>{errors.reportingTime.message}</Text>}
 
-        {/* ── Guest Arrival Time (optional) ── */}
+        {/* ── 8. Guest Arrival Time (optional) ── */}
         <View style={styles.optionalRow}>
           <Text style={styles.sectionLabel}>Guest Arrival Time</Text>
           <Text style={styles.optionalTag}>Optional</Text>
@@ -259,8 +274,8 @@ const CreateDutyScreen = () => {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity style={styles.addBtn} onPress={() => setHasGuestArrivalTime(true)}>
-            <Text style={styles.addBtnText}>+ Set Guest Arrival Time</Text>
+          <TouchableOpacity style={styles.addOptBtn} onPress={() => setHasGuestArrivalTime(true)}>
+            <Text style={styles.addOptBtnText}>+ Set Guest Arrival Time</Text>
           </TouchableOpacity>
         )}
         {showGuestArrivalPicker && (
@@ -268,7 +283,7 @@ const CreateDutyScreen = () => {
             onChange={(_, t) => { setShowGuestArrivalPicker(false); if (t) { setGuestArrivalTime(t); setValue('guestArrivalTime', toAPITime(t)); } }} />
         )}
 
-        {/* ── Office / Holiday Type ── */}
+        {/* ── 9. Office / Holiday Type ── */}
         <Text style={styles.sectionLabel}>Office / Holiday Type</Text>
         <Controller control={control} name="officeType" render={({field: {onChange, value}}) => (
           <DropDownPicker open={officeTypeOpen} setOpen={setOfficeTypeOpen} value={value} setValue={cb => onChange(cb(value))}
@@ -277,7 +292,7 @@ const CreateDutyScreen = () => {
         )} />
         {errors.officeType && <Text style={styles.err}>{errors.officeType.message}</Text>}
 
-        {/* ── From ── */}
+        {/* ── 10. From ── */}
         <Text style={styles.sectionLabel}>From</Text>
         <Controller control={control} name="from" render={({field: {onChange, value}}) => (
           <DropDownPicker open={fromOpen} setOpen={setFromOpen} value={value} setValue={cb => onChange(cb(value))}
@@ -286,7 +301,7 @@ const CreateDutyScreen = () => {
         )} />
         {errors.from && <Text style={styles.err}>{errors.from.message}</Text>}
 
-        {/* ── To ── */}
+        {/* ── 11. To ── */}
         <Text style={styles.sectionLabel}>To</Text>
         <Controller control={control} name="to" render={({field: {onChange, value}}) => (
           <DropDownPicker open={toOpen} setOpen={setToOpen} value={value} setValue={cb => onChange(cb(value))}
@@ -295,7 +310,7 @@ const CreateDutyScreen = () => {
         )} />
         {errors.to && <Text style={styles.err}>{errors.to.message}</Text>}
 
-        {/* ── Assign To (optional) ── */}
+        {/* ── 12. Assign To (optional) ── */}
         <View style={styles.optionalRow}>
           <Text style={styles.sectionLabel}>Assign To</Text>
           <Text style={styles.optionalTag}>Optional</Text>
@@ -307,7 +322,7 @@ const CreateDutyScreen = () => {
             zIndex={3000} listMode="SCROLLVIEW" />
         )} />
 
-        {/* ── No. of Passengers ── */}
+        {/* ── 13. No. of Passengers ── */}
         <Controller control={control} name="noOfPassengers" render={({field: {onChange, value}}) => (
           <AppInput
             label="No. of Passengers"
@@ -319,7 +334,7 @@ const CreateDutyScreen = () => {
           />
         )} />
 
-        {/* ── Airport ── */}
+        {/* ── 14. Airport ── */}
         <Text style={styles.sectionLabel}>Airport</Text>
         <Controller control={control} name="airportId" render={({field: {value}}) => (
           <DropDownPicker
@@ -333,7 +348,7 @@ const CreateDutyScreen = () => {
         )} />
         {errors.airportId && <Text style={styles.err}>{errors.airportId.message}</Text>}
 
-        {/* ── Terminal ── */}
+        {/* ── 15. Terminal ── */}
         <Text style={styles.sectionLabel}>Terminal</Text>
         <Controller control={control} name="terminalId" render={({field: {onChange, value}}) => (
           <DropDownPicker
@@ -377,8 +392,8 @@ const styles = StyleSheet.create({
   dateBtnText: {fontSize: 15, color: colors.text},
   dayBox: {borderWidth: 1.5, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: colors.background, justifyContent: 'center'},
   dayText: {fontSize: 14, color: colors.textSecondary},
-  addBtn: {borderWidth: 1.5, borderColor: colors.primary + '60', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: colors.primary + '08', marginBottom: 8, alignItems: 'center'},
-  addBtnText: {fontSize: 14, color: colors.primary, fontWeight: '500'},
+  addOptBtn: {borderWidth: 1.5, borderColor: colors.primary + '60', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: colors.primary + '08', marginBottom: 8, alignItems: 'center'},
+  addOptBtnText: {fontSize: 14, color: colors.primary, fontWeight: '500'},
   clearBtn: {borderWidth: 1.5, borderColor: colors.error + '60', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: colors.error + '08', marginBottom: 8, justifyContent: 'center'},
   clearBtnText: {fontSize: 13, color: colors.error},
   dropdown: {borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, marginBottom: 4},

@@ -60,8 +60,8 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
   const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
-    if (visible) { setTravellerName(''); setActiveTab(0); }
-  }, [visible]);
+    if (visible) { setTravellerName(duty?.travellerName || ''); setActiveTab(0); }
+  }, [visible, duty]);
 
   const phone = duty?.officerName === senderName ? senderPhone : subordinatePhone;
 
@@ -98,7 +98,10 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
 
   const handleShareWhatsApp = async () => {
     try {
-      const url = `whatsapp://send?text=${encodeURIComponent(travellerMsg)}`;
+      const phone = duty?.travellerPhone ? duty.travellerPhone.replace(/\D/g, '') : '';
+      const url = phone
+        ? `whatsapp://send?phone=91${phone}&text=${encodeURIComponent(travellerMsg)}`
+        : `whatsapp://send?text=${encodeURIComponent(travellerMsg)}`;
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) { await Linking.openURL(url); }
       else { await Share.share({message: travellerMsg}); }

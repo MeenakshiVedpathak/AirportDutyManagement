@@ -91,6 +91,14 @@ const AdminDutyDetailScreen = () => {
           <Row label="To" value={duty.to} />
         </View>
 
+        {(duty.travellerName || duty.travellerPhone) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Traveller Details</Text>
+            {duty.travellerName ? <Row label="Name" value={duty.travellerName} /> : null}
+            {duty.travellerPhone ? <Row label="Mobile" value={duty.travellerPhone} /> : null}
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Subordinate Details</Text>
           <Row label="Name" value={duty.officerName} />
