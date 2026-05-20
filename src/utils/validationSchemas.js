@@ -9,6 +9,7 @@ export const dutySchema = yup.object({
   officerId: yup.string().nullable().optional(),
   officerName: yup.string().nullable().optional(),
   travellerName: yup.string().nullable().optional(),
+  destinationRef: yup.string().nullable().optional(),
   travellerPhone: yup.string().nullable().optional(),
   date: yup.string().required('Date is required'),
   reportingTime: yup.string().required('Reporting time is required'),

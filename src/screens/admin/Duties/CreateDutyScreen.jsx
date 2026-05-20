@@ -100,7 +100,7 @@ const CreateDutyScreen = () => {
     resolver: dutyResolver,
     defaultValues: {
       officerId: '', officerName: '',
-      travellerName: '', travellerPhone: '',
+      travellerName: '', destinationRef: '', travellerPhone: '',
       date: prefill?.date || toAPIDate(new Date()),
       reportingTime: toAPITime(new Date()),
       guestArrivalTime: null,
@@ -206,7 +206,7 @@ const CreateDutyScreen = () => {
         <Controller control={control} name="arrivalDeparture" render={({field: {onChange, value}}) => (
           <DropDownPicker open={arrDepOpen} setOpen={setArrDepOpen} value={value} setValue={cb => onChange(cb(value))}
             items={ARRIVAL_DEPARTURE} placeholder="Select Arrival/Departure" style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownList} zIndex={7000} listMode="SCROLLVIEW" />
+            dropDownContainerStyle={styles.dropdownList} zIndex={8000} listMode="SCROLLVIEW" />
         )} />
         {errors.arrivalDeparture && <Text style={styles.err}>{errors.arrivalDeparture.message}</Text>}
 
@@ -217,33 +217,65 @@ const CreateDutyScreen = () => {
         </TouchableOpacity>
         {showFlightTimePicker && (
           <DateTimePicker value={flightTime} mode="time" is24Hour display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(_, t) => {
-              setShowFlightTimePicker(false);
-              if (t) { setFlightTime(t); setValue('flightTime', toAPITime(t)); }
-            }} />
+            onChange={(_, t) => { setShowFlightTimePicker(false); if (t) { setFlightTime(t); setValue('flightTime', toAPITime(t)); } }} />
         )}
         {errors.flightTime && <Text style={styles.err}>{errors.flightTime.message}</Text>}
 
-        {/* ── 4. Traveller Name (optional) ── */}
+        {/* ── 4. Office / Holiday Type ── */}
+        <Text style={styles.sectionLabel}>Holiday / Office Time</Text>
+        <Controller control={control} name="officeType" render={({field: {onChange, value}}) => (
+          <DropDownPicker open={officeTypeOpen} setOpen={setOfficeTypeOpen} value={value} setValue={cb => onChange(cb(value))}
+            items={OFFICE_TYPES} placeholder="Select Type" style={styles.dropdown}
+            dropDownContainerStyle={styles.dropdownList} zIndex={7000} listMode="SCROLLVIEW" />
+        )} />
+        {errors.officeType && <Text style={styles.err}>{errors.officeType.message}</Text>}
+
+        {/* ── 5. Flight No ── */}
+        <Controller control={control} name="flightNo" render={({field: {onChange, value}}) => (
+          <AppInput label="Flight Number" value={value} onChangeText={onChange}
+            placeholder="e.g. 6E 201" autoCapitalize="characters" error={errors.flightNo?.message} />
+        )} />
+
+        {/* ── 6. Name of Traveller ── */}
         <Controller control={control} name="travellerName" render={({field: {onChange, value}}) => (
-          <AppInput label="Traveller Name" value={value} onChangeText={onChange}
-            placeholder="Enter traveller's name" autoCapitalize="words"
+          <AppInput label="Name of Traveller" value={value} onChangeText={onChange}
+            placeholder="Enter traveller's full name" autoCapitalize="words"
             error={errors.travellerName?.message} />
         )} />
 
-        {/* ── 5. Traveller Mobile No (optional) ── */}
+        {/* ── 7. Destination / Ref ── */}
+        <Controller control={control} name="destinationRef" render={({field: {onChange, value}}) => (
+          <AppInput label="Destination / Ref" value={value} onChangeText={onChange}
+            placeholder="Destination address or reference note"
+            error={errors.destinationRef?.message} />
+        )} />
+
+        {/* ── 8. Mob No of Traveller ── */}
         <Controller control={control} name="travellerPhone" render={({field: {onChange, value}}) => (
-          <AppInput label="Traveller Mobile No" value={value} onChangeText={onChange}
+          <AppInput label="Mob No of Traveller" value={value} onChangeText={onChange}
             placeholder="10-digit mobile number" keyboardType="phone-pad"
             error={errors.travellerPhone?.message} />
         )} />
 
-        {/* ── 6. Flight No ── */}
-        <Controller control={control} name="flightNo" render={({field: {onChange, value}}) => (
-          <AppInput label="Flight No" value={value} onChangeText={onChange} placeholder="e.g. 6E 201" autoCapitalize="characters" error={errors.flightNo?.message} />
+        {/* ── 9. From ── */}
+        <Text style={styles.sectionLabel}>From</Text>
+        <Controller control={control} name="from" render={({field: {onChange, value}}) => (
+          <DropDownPicker open={fromOpen} setOpen={setFromOpen} value={value} setValue={cb => onChange(cb(value))}
+            items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select From City" style={styles.dropdown} searchable
+            dropDownContainerStyle={styles.dropdownList} zIndex={6000} listMode="SCROLLVIEW" />
         )} />
+        {errors.from && <Text style={styles.err}>{errors.from.message}</Text>}
 
-        {/* ── 7. Reporting Time (auto-calculated) ── */}
+        {/* ── 10. To ── */}
+        <Text style={styles.sectionLabel}>To</Text>
+        <Controller control={control} name="to" render={({field: {onChange, value}}) => (
+          <DropDownPicker open={toOpen} setOpen={setToOpen} value={value} setValue={cb => onChange(cb(value))}
+            items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select To City" style={styles.dropdown} searchable
+            dropDownContainerStyle={styles.dropdownList} zIndex={5000} listMode="SCROLLVIEW" />
+        )} />
+        {errors.to && <Text style={styles.err}>{errors.to.message}</Text>}
+
+        {/* ── Reporting Time (auto-calculated) ── */}
         <Text style={styles.sectionLabel}>
           Reporting Time at Airport
           <Text style={styles.autoHint}>
@@ -259,7 +291,7 @@ const CreateDutyScreen = () => {
         )}
         {errors.reportingTime && <Text style={styles.err}>{errors.reportingTime.message}</Text>}
 
-        {/* ── 8. Guest Arrival Time (optional) ── */}
+        {/* ── Guest Arrival Time (optional) ── */}
         <View style={styles.optionalRow}>
           <Text style={styles.sectionLabel}>Guest Arrival Time</Text>
           <Text style={styles.optionalTag}>Optional</Text>
@@ -283,34 +315,7 @@ const CreateDutyScreen = () => {
             onChange={(_, t) => { setShowGuestArrivalPicker(false); if (t) { setGuestArrivalTime(t); setValue('guestArrivalTime', toAPITime(t)); } }} />
         )}
 
-        {/* ── 9. Office / Holiday Type ── */}
-        <Text style={styles.sectionLabel}>Office / Holiday Type</Text>
-        <Controller control={control} name="officeType" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={officeTypeOpen} setOpen={setOfficeTypeOpen} value={value} setValue={cb => onChange(cb(value))}
-            items={OFFICE_TYPES} placeholder="Select Type" style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownList} zIndex={6000} listMode="SCROLLVIEW" />
-        )} />
-        {errors.officeType && <Text style={styles.err}>{errors.officeType.message}</Text>}
-
-        {/* ── 10. From ── */}
-        <Text style={styles.sectionLabel}>From</Text>
-        <Controller control={control} name="from" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={fromOpen} setOpen={setFromOpen} value={value} setValue={cb => onChange(cb(value))}
-            items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select From City" style={styles.dropdown} searchable
-            dropDownContainerStyle={styles.dropdownList} zIndex={5000} listMode="SCROLLVIEW" />
-        )} />
-        {errors.from && <Text style={styles.err}>{errors.from.message}</Text>}
-
-        {/* ── 11. To ── */}
-        <Text style={styles.sectionLabel}>To</Text>
-        <Controller control={control} name="to" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={toOpen} setOpen={setToOpen} value={value} setValue={cb => onChange(cb(value))}
-            items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select To City" style={styles.dropdown} searchable
-            dropDownContainerStyle={styles.dropdownList} zIndex={4000} listMode="SCROLLVIEW" />
-        )} />
-        {errors.to && <Text style={styles.err}>{errors.to.message}</Text>}
-
-        {/* ── 12. Assign To (optional) ── */}
+        {/* ── Assign To (optional) ── */}
         <View style={styles.optionalRow}>
           <Text style={styles.sectionLabel}>Assign To</Text>
           <Text style={styles.optionalTag}>Optional</Text>
@@ -319,41 +324,31 @@ const CreateDutyScreen = () => {
           <DropDownPicker open={officerOpen} setOpen={setOfficerOpen} value={value || null} setValue={cb => onChange(cb(value))}
             items={officerItems} placeholder="Assign later or select now"
             style={styles.dropdown} dropDownContainerStyle={styles.dropdownList}
-            zIndex={3000} listMode="SCROLLVIEW" />
+            zIndex={4000} listMode="SCROLLVIEW" />
         )} />
 
-        {/* ── 13. No. of Passengers ── */}
+        {/* ── No. of Passengers ── */}
         <Controller control={control} name="noOfPassengers" render={({field: {onChange, value}}) => (
-          <AppInput
-            label="No. of Passengers"
-            value={String(value ?? '')}
+          <AppInput label="No. of Passengers" value={String(value ?? '')}
             onChangeText={v => onChange(v.replace(/[^0-9]/g, ''))}
-            keyboardType="numeric"
-            placeholder="1"
-            error={errors.noOfPassengers?.message}
-          />
+            keyboardType="numeric" placeholder="1" error={errors.noOfPassengers?.message} />
         )} />
 
-        {/* ── 14. Airport ── */}
+        {/* ── Airport ── */}
         <Text style={styles.sectionLabel}>Airport</Text>
         <Controller control={control} name="airportId" render={({field: {value}}) => (
-          <DropDownPicker
-            open={airportOpen} setOpen={setAirportOpen}
-            value={value}
+          <DropDownPicker open={airportOpen} setOpen={setAirportOpen} value={value}
             setValue={cb => handleAirportChange(cb(value))}
             items={airports.filter(a => a.isActive).map(a => ({label: `${a.name} (${a.code})`, value: a.id}))}
             placeholder="Select Airport" style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownList} zIndex={2000} listMode="SCROLLVIEW"
-          />
+            dropDownContainerStyle={styles.dropdownList} zIndex={3000} listMode="SCROLLVIEW" />
         )} />
         {errors.airportId && <Text style={styles.err}>{errors.airportId.message}</Text>}
 
-        {/* ── 15. Terminal ── */}
+        {/* ── Terminal ── */}
         <Text style={styles.sectionLabel}>Terminal</Text>
         <Controller control={control} name="terminalId" render={({field: {onChange, value}}) => (
-          <DropDownPicker
-            open={terminalOpen} setOpen={setTerminalOpen}
-            value={value}
+          <DropDownPicker open={terminalOpen} setOpen={setTerminalOpen} value={value}
             setValue={cb => {
               const tId = cb(value);
               const terminal = terminals.find(t => t.id === tId);
@@ -364,8 +359,7 @@ const CreateDutyScreen = () => {
             placeholder={terminals.length === 0 ? 'Select airport first' : 'Select Terminal'}
             disabled={terminals.length === 0}
             style={[styles.dropdown, terminals.length === 0 && styles.dropdownDisabled]}
-            dropDownContainerStyle={styles.dropdownList} zIndex={1100} listMode="SCROLLVIEW"
-          />
+            dropDownContainerStyle={styles.dropdownList} zIndex={2000} listMode="SCROLLVIEW" />
         )} />
         {errors.terminalId && <Text style={styles.err}>{errors.terminalId.message}</Text>}
 

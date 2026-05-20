@@ -8,6 +8,7 @@ const dutySchema = new mongoose.Schema(
     officerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     officerName: { type: String, default: '' },
     travellerName: { type: String, default: '' },
+    destinationRef: { type: String, default: '' },
     travellerPhone: { type: String, default: '' },
     date: { type: String, required: true },
     reportingTime: { type: String, required: true },

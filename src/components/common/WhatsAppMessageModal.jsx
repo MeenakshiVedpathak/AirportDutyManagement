@@ -7,7 +7,7 @@ import {colors} from '../../theme/colors';
 import {shadows} from '../../theme/spacing';
 import {formatTime} from '../../utils/dateUtils';
 
-const buildTravellerMessage = ({travellerName, senderName, subordinateName, airportName, terminalName, date, flightNo, flightTime, from, to, arrivalDeparture, phone}) => {
+const buildTravellerMessage = ({travellerName, senderName, subordinateName, airportName, terminalName, date, flightNo, flightTime, from, to, arrivalDeparture, phone, destinationRef}) => {
   const arrDep = arrivalDeparture === 'ARRIVAL' ? 'Arrival' : 'Departure';
   const lines = [
     `Dear ${travellerName || '__________'},`,
@@ -19,12 +19,13 @@ const buildTravellerMessage = ({travellerName, senderName, subordinateName, airp
     `${airportName}${terminalName ? `, ${terminalName}` : ''} on ${date}`,
     `for your ${arrDep} — Flight ${flightNo} at ${formatTime(flightTime)}`,
     `(${from} → ${to}).`,
+    destinationRef ? `Destination/Ref: ${destinationRef}` : null,
     '',
     `Contact No: ${phone || '__________'}`,
     '',
     `Regards,`,
     senderName,
-  ];
+  ].filter(l => l !== null);
   return lines.join('\n');
 };
 
@@ -78,6 +79,7 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
     to: duty?.to || '',
     arrivalDeparture: duty?.arrivalDeparture || '',
     phone,
+    destinationRef: duty?.destinationRef || '',
   });
 
   const authorityMsg = buildAuthorityEmail({
