@@ -116,7 +116,7 @@ const OfficerDutyDetailScreen = () => {
           <Row label="Date" value={formatDate(duty.date)} />
           <Row label="Day" value={duty.day} />
           <Row label="Arrival / Departure" value={duty.arrivalDeparture} />
-          <Row label="Office Type" value={duty.officeType?.replace(/_/g, ' ')} />
+          <Row label="Holiday / Office Time" value={duty.officeType?.replace(/_/g, ' ')} />
           <Row label="Reporting Time" value={formatTime(duty.reportingTime)} />
           <Row label="Airport" value={duty.airportName || duty.airport} />
           <Row label="Terminal" value={duty.terminalName} />

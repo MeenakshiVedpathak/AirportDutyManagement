@@ -124,7 +124,7 @@ const OfficerDutiesScreen = () => {
           <View style={styles.metaRow}>
             <MetaItem label="Airport" value={item.airportName} />
             <MetaItem label="Terminal" value={item.terminalName} />
-            <MetaItem label="Type" value={item.officeType?.replace(/_/g, ' ')} />
+            <MetaItem label="Holiday/Office" value={item.officeType?.replace(/_/g, ' ')} />
           </View>
 
           {claimed && item.officerName ? (
