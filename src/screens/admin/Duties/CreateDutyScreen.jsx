@@ -221,16 +221,7 @@ const CreateDutyScreen = () => {
         )}
         {errors.flightTime && <Text style={styles.err}>{errors.flightTime.message}</Text>}
 
-        {/* ── 4. Office / Holiday Type ── */}
-        <Text style={styles.sectionLabel}>Holiday / Office Time</Text>
-        <Controller control={control} name="officeType" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={officeTypeOpen} setOpen={setOfficeTypeOpen} value={value} setValue={cb => onChange(cb(value))}
-            items={OFFICE_TYPES} placeholder="Select Type" style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownList} zIndex={7000} listMode="SCROLLVIEW" />
-        )} />
-        {errors.officeType && <Text style={styles.err}>{errors.officeType.message}</Text>}
-
-        {/* ── 5. Flight No ── */}
+        {/* ── 4. Flight No ── */}
         <Controller control={control} name="flightNo" render={({field: {onChange, value}}) => (
           <AppInput label="Flight Number" value={value} onChangeText={onChange}
             placeholder="e.g. 6E 201" autoCapitalize="characters" error={errors.flightNo?.message} />
@@ -255,16 +246,16 @@ const CreateDutyScreen = () => {
         <Controller control={control} name="from" render={({field: {onChange, value}}) => (
           <DropDownPicker open={fromOpen} setOpen={setFromOpen} value={value} setValue={cb => onChange(cb(value))}
             items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select From City" style={styles.dropdown} searchable
-            dropDownContainerStyle={styles.dropdownList} zIndex={6000} listMode="SCROLLVIEW" />
+            dropDownContainerStyle={styles.dropdownList} zIndex={7000} listMode="SCROLLVIEW" />
         )} />
         {errors.from && <Text style={styles.err}>{errors.from.message}</Text>}
 
-        {/* ── 10. To ── */}
+        {/* ── To ── */}
         <Text style={styles.sectionLabel}>To</Text>
         <Controller control={control} name="to" render={({field: {onChange, value}}) => (
           <DropDownPicker open={toOpen} setOpen={setToOpen} value={value} setValue={cb => onChange(cb(value))}
             items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select To City" style={styles.dropdown} searchable
-            dropDownContainerStyle={styles.dropdownList} zIndex={5000} listMode="SCROLLVIEW" />
+            dropDownContainerStyle={styles.dropdownList} zIndex={6000} listMode="SCROLLVIEW" />
         )} />
         {errors.to && <Text style={styles.err}>{errors.to.message}</Text>}
 
@@ -317,8 +308,17 @@ const CreateDutyScreen = () => {
           <DropDownPicker open={officerOpen} setOpen={setOfficerOpen} value={value || null} setValue={cb => onChange(cb(value))}
             items={officerItems} placeholder="Assign later or select now"
             style={styles.dropdown} dropDownContainerStyle={styles.dropdownList}
-            zIndex={4000} listMode="SCROLLVIEW" />
+            zIndex={5000} listMode="SCROLLVIEW" />
         )} />
+
+        {/* ── Holiday / Office Time ── */}
+        <Text style={styles.sectionLabel}>Holiday / Office Time</Text>
+        <Controller control={control} name="officeType" render={({field: {onChange, value}}) => (
+          <DropDownPicker open={officeTypeOpen} setOpen={setOfficeTypeOpen} value={value} setValue={cb => onChange(cb(value))}
+            items={OFFICE_TYPES} placeholder="Select Type" style={styles.dropdown}
+            dropDownContainerStyle={styles.dropdownList} zIndex={4000} listMode="SCROLLVIEW" />
+        )} />
+        {errors.officeType && <Text style={styles.err}>{errors.officeType.message}</Text>}
 
         {/* ── No. of Passengers ── */}
         <Controller control={control} name="noOfPassengers" render={({field: {onChange, value}}) => (
