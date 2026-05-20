@@ -1,7 +1,7 @@
 import {useDispatch, useSelector} from 'react-redux';
 import Toast from 'react-native-toast-message';
 import {fetchDutiesStart, fetchDutiesSuccess, appendDutiesSuccess, fetchDutiesFailure, updateDutyInList, addDutyToList, setSelectedDuty, setFilters as setFiltersAction} from '../store/slices/dutySlice';
-import {getDuties, getDutyById, createDuty, updateDutyStatus, confirmDuty as confirmDutyAPI} from '../api/dutyApi';
+import {getDuties, getDutyById, createDuty, updateDutyStatus, confirmDuty as confirmDutyAPI, claimDuty as claimDutyAPI, releaseDuty as releaseDutyAPI} from '../api/dutyApi';
 
 const PAGE_SIZE = 20;
 
@@ -80,7 +80,31 @@ export const useDuties = () => {
     }
   };
 
+  const claimDuty = async id => {
+    try {
+      const res = await claimDutyAPI(id);
+      dispatch(updateDutyInList(res.data));
+      Toast.show({type: 'success', text1: 'Duty Claimed', text2: 'You have taken this duty'});
+      return res.data;
+    } catch (err) {
+      Toast.show({type: 'error', text1: 'Error', text2: err?.message || 'Failed to claim duty'});
+      return null;
+    }
+  };
+
+  const releaseDuty = async id => {
+    try {
+      const res = await releaseDutyAPI(id);
+      dispatch(updateDutyInList(res.data));
+      Toast.show({type: 'success', text1: 'Duty Released', text2: 'Duty is now available for others'});
+      return res.data;
+    } catch (err) {
+      Toast.show({type: 'error', text1: 'Error', text2: err?.message || 'Failed to release duty'});
+      return null;
+    }
+  };
+
   const setFilters = filters => dispatch(setFiltersAction(filters));
 
-  return {...dutyState, fetchDuties, loadMore, fetchDuty, addDuty, changeStatus, confirmDuty, setFilters};
+  return {...dutyState, fetchDuties, loadMore, fetchDuty, addDuty, changeStatus, confirmDuty, claimDuty, releaseDuty, setFilters};
 };

@@ -32,7 +32,7 @@ const OfficerDashboardScreen = () => {
   const cancelled = duties.filter(d => d.status === DUTY_STATUS.CANCELLED).length;
 
   useEffect(() => {
-    fetchDuties({officerId: user?.id});
+    fetchDuties({mine: 'true'});
   }, []);
 
   useEffect(() => {
@@ -84,7 +84,7 @@ const OfficerDashboardScreen = () => {
         {todayDuties.length === 0
           ? <EmptyState icon="✈️" title="No duties today" subtitle="Enjoy your day off!" />
           : todayDuties.map(d => (
-              <DutyCard key={d.id} duty={d} onPress={() => navigation.navigate('MyDuties', {screen: 'DutyDetail', params: {dutyId: d.id}})} />
+              <DutyCard key={d.id} duty={d} onPress={() => navigation.navigate('MyDuties', {screen: 'DutyDetail', params: {dutyId: d.id}}, {initial: false})} />
             ))
         }
       </ScrollView>

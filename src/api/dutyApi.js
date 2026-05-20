@@ -15,5 +15,11 @@ export const updateDutyStatus = (id, status) =>
 export const confirmDuty = id =>
   axiosInstance.patch(`/duties/${id}/confirm`);
 
+export const claimDuty = id =>
+  axiosInstance.patch(`/duties/${id}/claim`);
+
+export const releaseDuty = id =>
+  axiosInstance.patch(`/duties/${id}/release`);
+
 export const deleteDuty = id =>
   axiosInstance.delete(`/duties/${id}`);

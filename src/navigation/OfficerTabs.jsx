@@ -5,9 +5,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {colors} from '../theme/colors';
 import OfficerDashboardScreen from '../screens/officer/Dashboard/OfficerDashboardScreen';
 import MyDutiesScreen from '../screens/officer/Duties/MyDutiesScreen';
-import CreateDutyScreen from '../screens/officer/Duties/CreateDutyScreen';
 import DutyDetailScreen from '../screens/officer/Duties/DutyDetailScreen';
-import BoardingPassScanScreen from '../screens/officer/Duties/BoardingPassScanScreen';
 import ProfileScreen from '../screens/officer/Profile/ProfileScreen';
 import ChangePasswordScreen from '../screens/shared/ChangePasswordScreen';
 
@@ -20,15 +18,6 @@ const DutiesNavigator = () => (
     <DutyStack.Screen name="MyDutiesList" component={MyDutiesScreen} />
     <DutyStack.Screen name="DutyDetail" component={DutyDetailScreen} />
   </DutyStack.Navigator>
-);
-
-const CreateDutyStack = createNativeStackNavigator();
-
-const CreateDutyNavigator = () => (
-  <CreateDutyStack.Navigator screenOptions={{headerShown: false}}>
-    <CreateDutyStack.Screen name="CreateDuty" component={CreateDutyScreen} />
-    <CreateDutyStack.Screen name="BoardingPassScan" component={BoardingPassScanScreen} />
-  </CreateDutyStack.Navigator>
 );
 
 const ProfileNavigator = () => (
@@ -50,8 +39,6 @@ const OfficerTabs = () => (
       options={{tabBarIcon: () => <Text style={{fontSize: 20}}>🏠</Text>}} />
     <Tab.Screen name="MyDuties" component={DutiesNavigator}
       options={{tabBarLabel: 'My Duties', tabBarIcon: () => <Text style={{fontSize: 20}}>📋</Text>}} />
-    <Tab.Screen name="CreateDutyTab" component={CreateDutyNavigator}
-      options={{tabBarLabel: 'Create Duty', tabBarIcon: () => <Text style={{fontSize: 20}}>➕</Text>}} />
     <Tab.Screen name="Profile" component={ProfileNavigator}
       options={{tabBarIcon: () => <Text style={{fontSize: 20}}>👤</Text>}} />
   </Tab.Navigator>
