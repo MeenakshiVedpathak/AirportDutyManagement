@@ -1,7 +1,7 @@
 import {useDispatch, useSelector} from 'react-redux';
 import Toast from 'react-native-toast-message';
 import {fetchDutiesStart, fetchDutiesSuccess, appendDutiesSuccess, fetchDutiesFailure, updateDutyInList, addDutyToList, setSelectedDuty, setFilters as setFiltersAction} from '../store/slices/dutySlice';
-import {getDuties, getDutyById, createDuty, updateDutyStatus, confirmDuty as confirmDutyAPI, claimDuty as claimDutyAPI, releaseDuty as releaseDutyAPI} from '../api/dutyApi';
+import {getDuties, getDutyById, createDuty, updateDutyStatus, confirmDuty as confirmDutyAPI, assignOfficer as assignOfficerAPI, claimDuty as claimDutyAPI, releaseDuty as releaseDutyAPI} from '../api/dutyApi';
 
 const PAGE_SIZE = 20;
 
@@ -80,6 +80,19 @@ export const useDuties = () => {
     }
   };
 
+  const assignOfficer = async (id, officerId, officerName) => {
+    try {
+      const res = await assignOfficerAPI(id, officerId, officerName);
+      dispatch(updateDutyInList(res.data));
+      dispatch(setSelectedDuty(res.data));
+      Toast.show({type: 'success', text1: 'Subordinate Assigned'});
+      return res.data;
+    } catch (err) {
+      Toast.show({type: 'error', text1: 'Error', text2: err?.message || 'Failed to assign subordinate'});
+      return null;
+    }
+  };
+
   const claimDuty = async id => {
     try {
       const res = await claimDutyAPI(id);
@@ -106,5 +119,5 @@ export const useDuties = () => {
 
   const setFilters = filters => dispatch(setFiltersAction(filters));
 
-  return {...dutyState, fetchDuties, loadMore, fetchDuty, addDuty, changeStatus, confirmDuty, claimDuty, releaseDuty, setFilters};
+  return {...dutyState, fetchDuties, loadMore, fetchDuty, addDuty, changeStatus, confirmDuty, assignOfficer, claimDuty, releaseDuty, setFilters};
 };

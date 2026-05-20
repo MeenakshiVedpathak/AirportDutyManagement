@@ -15,6 +15,9 @@ export const updateDutyStatus = (id, status) =>
 export const confirmDuty = id =>
   axiosInstance.patch(`/duties/${id}/confirm`);
 
+export const assignOfficer = (id, officerId, officerName) =>
+  axiosInstance.patch(`/duties/${id}/assign`, {officerId, officerName});
+
 export const claimDuty = id =>
   axiosInstance.patch(`/duties/${id}/claim`);
 

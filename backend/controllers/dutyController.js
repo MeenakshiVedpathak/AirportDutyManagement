@@ -97,6 +97,41 @@ exports.getDutyById = async (req, res, next) => {
   }
 };
 
+exports.assignOfficer = async (req, res, next) => {
+  try {
+    const { officerId, officerName } = req.body;
+    const duty = await Duty.findById(req.params.id);
+    if (!duty) return res.status(404).json({ message: 'Duty not found' });
+
+    let resolvedName = officerName || '';
+    if (officerId && !resolvedName) {
+      const officer = await User.findById(officerId).select('name');
+      if (officer) resolvedName = officer.name;
+    }
+
+    duty.officerId = officerId || undefined;
+    duty.officerName = resolvedName;
+    duty.officerConfirmed = false;
+    await duty.save();
+
+    if (duty.officerId) {
+      const officer = await User.findById(duty.officerId).select('fcmToken name');
+      if (officer?.fcmToken) {
+        sendPushNotification({
+          token: officer.fcmToken,
+          title: 'Duty Assigned',
+          body: `Flight ${duty.flightNo || '—'} at ${duty.airportName || 'Airport'} on ${duty.date || '—'}`,
+          data: { dutyId: duty.toJSON().id },
+        });
+      }
+    }
+
+    res.json(duty.toJSON());
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.claimDuty = async (req, res, next) => {
   try {
     const duty = await Duty.findById(req.params.id);

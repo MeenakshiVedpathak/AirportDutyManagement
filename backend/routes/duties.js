@@ -3,6 +3,7 @@ const { protect, adminOnly } = require('../middleware/auth');
 const {
   createDuty,
   confirmDuty,
+  assignOfficer,
   claimDuty,
   releaseDuty,
   getDuties,
@@ -16,6 +17,7 @@ router.use(protect);
 router.get('/', getDuties);
 router.post('/', adminOnly, createDuty);
 router.get('/:id', getDutyById);
+router.patch('/:id/assign', adminOnly, assignOfficer);
 router.patch('/:id/claim', claimDuty);
 router.patch('/:id/release', releaseDuty);
 router.patch('/:id/confirm', confirmDuty);

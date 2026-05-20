@@ -1,8 +1,9 @@
 import React, {useEffect, useState} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
-import {useSelector} from 'react-redux';
+import {useSelector, useDispatch} from 'react-redux';
+import DropDownPicker from 'react-native-dropdown-picker';
 import {useDuties} from '../../../hooks/useDuties';
 import StatusBadge from '../../../components/common/StatusBadge';
 import {STATUS_DESCRIPTIONS} from '../../../constants/dutyStatus';
@@ -13,6 +14,8 @@ import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
 import {formatDate, formatTime} from '../../../utils/dateUtils';
 import {isIncentiveEligible} from '../../../utils/incentiveUtils';
+import {fetchOfficersStart, fetchOfficersSuccess, fetchOfficersFailure} from '../../../store/slices/officerSlice';
+import {getOfficers} from '../../../api/officerApi';
 
 const Row = ({label, value}) => (
   <View style={styles.row}>
@@ -24,13 +27,28 @@ const Row = ({label, value}) => (
 const AdminDutyDetailScreen = () => {
   const navigation = useNavigation();
   const {params: {dutyId}} = useRoute();
-  const {selectedDuty: duty, fetchDuty, changeStatus, isLoading} = useDuties();
+  const dispatch = useDispatch();
+  const {selectedDuty: duty, fetchDuty, changeStatus, assignOfficer, isLoading} = useDuties();
   const [updating, setUpdating] = useState(false);
   const [msgModalVisible, setMsgModalVisible] = useState(false);
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [officerOpen, setOfficerOpen] = useState(false);
+  const [selectedOfficerId, setSelectedOfficerId] = useState(null);
+  const [assigning, setAssigning] = useState(false);
 
   const user = useSelector(state => state.auth.user);
+  const officers = useSelector(state => state.officers.list);
 
   useEffect(() => {fetchDuty(dutyId);}, [dutyId]);
+
+  useEffect(() => {
+    if (assignModalVisible && officers.length === 0) {
+      dispatch(fetchOfficersStart());
+      getOfficers()
+        .then(res => dispatch(fetchOfficersSuccess(res.data)))
+        .catch(e => dispatch(fetchOfficersFailure(e?.message)));
+    }
+  }, [assignModalVisible]);
 
   const handleStatusUpdate = async status => {
     setUpdating(true);
@@ -39,9 +57,24 @@ const AdminDutyDetailScreen = () => {
     setUpdating(false);
   };
 
+  const handleAssign = async () => {
+    if (!selectedOfficerId) return;
+    const officer = officers.find(o => o.id?.toString() === selectedOfficerId);
+    setAssigning(true);
+    await assignOfficer(dutyId, selectedOfficerId, officer?.name || '');
+    setAssigning(false);
+    setAssignModalVisible(false);
+    setSelectedOfficerId(null);
+  };
+
   if (!duty) return <LoadingOverlay visible={isLoading} />;
 
   const confirmed = !!duty.officerConfirmed;
+  const hasOfficer = !!duty.officerId;
+
+  const officerItems = officers
+    .filter(o => o.isEnabled)
+    .map(o => ({label: o.name, value: o.id?.toString()}));
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -51,6 +84,7 @@ const AdminDutyDetailScreen = () => {
         <View style={{width: 60}} />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
+
         <View style={styles.card}>
           <View style={styles.topRow}>
             <View>
@@ -63,11 +97,9 @@ const AdminDutyDetailScreen = () => {
           {isIncentiveEligible(duty.officeType) && (
             <View style={styles.incentiveBadge}><Text style={styles.incentiveText}>₹500 Incentive Eligible</Text></View>
           )}
-
-          {/* Officer confirmation badge */}
           <View style={[styles.confirmBadge, confirmed ? styles.confirmBadgeYes : styles.confirmBadgeNo]}>
             <Text style={[styles.confirmBadgeText, confirmed ? styles.confirmBadgeTextYes : styles.confirmBadgeTextNo]}>
-              {confirmed ? '✓ Officer Confirmed' : '⏳ Awaiting Officer Confirmation'}
+              {confirmed ? '✓ Subordinate Confirmed' : '⏳ Awaiting Confirmation'}
             </Text>
           </View>
         </View>
@@ -76,48 +108,86 @@ const AdminDutyDetailScreen = () => {
           <Text style={styles.sectionTitle}>Duty Information</Text>
           <Row label="Date" value={formatDate(duty.date)} />
           <Row label="Day" value={duty.day} />
-          <Row label="Office Type" value={duty.officeType?.replace('_', ' ')} />
-          <Row label="Reporting Time" value={formatTime(duty.reportingTime)} />
-          <Row label="Airport" value={duty.airport} />
-          <Row label="Arrival/Departure" value={duty.arrivalDeparture} />
-          {duty.guestArrivalTime ? <Row label="Guest Arrival Time" value={formatTime(duty.guestArrivalTime)} /> : null}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Flight Information</Text>
+          <Row label="Arrival / Departure" value={duty.arrivalDeparture} />
+          <Row label="Office Type" value={duty.officeType?.replace(/_/g, ' ')} />
           <Row label="Flight No" value={duty.flightNo} />
           <Row label="Flight Time" value={formatTime(duty.flightTime)} />
+          <Row label="Reporting Time" value={formatTime(duty.reportingTime)} />
+          {duty.guestArrivalTime ? <Row label="Guest Arrival Time" value={formatTime(duty.guestArrivalTime)} /> : null}
           <Row label="From" value={duty.from} />
           <Row label="To" value={duty.to} />
+          <Row label="Airport" value={duty.airportName || duty.airport} />
+          <Row label="Terminal" value={duty.terminalName} />
+          <Row label="Passengers" value={duty.noOfPassengers?.toString()} />
         </View>
 
         {(duty.travellerName || duty.travellerPhone) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Traveller Details</Text>
-            {duty.travellerName ? <Row label="Name" value={duty.travellerName} /> : null}
-            {duty.travellerPhone ? <Row label="Mobile" value={duty.travellerPhone} /> : null}
+            {duty.travellerName ? <Row label="Name of Traveller" value={duty.travellerName} /> : null}
+            {duty.travellerPhone ? <Row label="Mobile No. of Traveller" value={duty.travellerPhone} /> : null}
           </View>
         )}
 
+        {/* Subordinate section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Subordinate Details</Text>
-          <Row label="Name" value={duty.officerName} />
-          <Row label="Passengers" value={duty.noOfPassengers?.toString()} />
+          <Text style={styles.sectionTitle}>Subordinate</Text>
+          {hasOfficer ? (
+            <>
+              <Row label="Name" value={duty.officerName} />
+              <TouchableOpacity style={styles.reassignBtn} onPress={() => setAssignModalVisible(true)}>
+                <Text style={styles.reassignBtnText}>✎  Change Subordinate</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.noOfficerText}>No subordinate assigned yet</Text>
+              <TouchableOpacity style={styles.assignBtn} onPress={() => setAssignModalVisible(true)}>
+                <Text style={styles.assignBtnText}>+ Assign Subordinate</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
-        {/* Send Messages button — available once officer confirms */}
         {confirmed && (
           <TouchableOpacity style={styles.msgBtn} onPress={() => setMsgModalVisible(true)} activeOpacity={0.8}>
             <Text style={styles.msgBtnText}>📤  Send Messages</Text>
           </TouchableOpacity>
         )}
 
-        <DutyStatusUpdater
-          duty={duty}
-          onUpdate={handleStatusUpdate}
-          loading={updating}
-        />
+        <DutyStatusUpdater duty={duty} onUpdate={handleStatusUpdate} loading={updating} />
       </ScrollView>
+
+      {/* Assign Subordinate Modal */}
+      <Modal visible={assignModalVisible} transparent animationType="slide" onRequestClose={() => setAssignModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Assign Subordinate</Text>
+            <Text style={styles.modalSub}>Select an officer to assign to this duty</Text>
+            <DropDownPicker
+              open={officerOpen} setOpen={setOfficerOpen}
+              value={selectedOfficerId} setValue={setSelectedOfficerId}
+              items={officerItems}
+              placeholder="Select subordinate"
+              style={styles.dropdown}
+              dropDownContainerStyle={styles.dropdownList}
+              listMode="SCROLLVIEW" zIndex={1000}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setAssignModalVisible(false); setSelectedOfficerId(null); }}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmAssignBtn, (!selectedOfficerId || assigning) && styles.btnDisabled]}
+                onPress={handleAssign} disabled={!selectedOfficerId || assigning}>
+                {assigning
+                  ? <ActivityIndicator color={colors.white} size="small" />
+                  : <Text style={styles.confirmAssignBtnText}>Assign</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <WhatsAppMessageModal
         visible={msgModalVisible}
@@ -144,10 +214,7 @@ const styles = StyleSheet.create({
   incentiveBadge: {backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginTop: 10},
   incentiveText: {fontSize: 12, fontWeight: '600', color: '#92400E'},
   statusDesc: {fontSize: 12, color: colors.textSecondary, marginTop: 8, lineHeight: 17},
-  confirmBadge: {
-    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6,
-    alignSelf: 'flex-start', marginTop: 10,
-  },
+  confirmBadge: {borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start', marginTop: 10},
   confirmBadgeYes: {backgroundColor: '#DCFCE7'},
   confirmBadgeNo: {backgroundColor: '#FEF9C3'},
   confirmBadgeText: {fontSize: 12, fontWeight: '700'},
@@ -158,11 +225,26 @@ const styles = StyleSheet.create({
   row: {flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.divider},
   rowLabel: {fontSize: 13, color: colors.textSecondary},
   rowValue: {fontSize: 13, fontWeight: '500', color: colors.text, maxWidth: '60%', textAlign: 'right'},
-  msgBtn: {
-    backgroundColor: '#2563EB', borderRadius: 12, paddingVertical: 15,
-    alignItems: 'center', marginBottom: 12, ...shadows.sm,
-  },
+  noOfficerText: {fontSize: 13, color: colors.textSecondary, marginBottom: 12},
+  assignBtn: {backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center'},
+  assignBtnText: {color: colors.white, fontSize: 14, fontWeight: '700'},
+  reassignBtn: {marginTop: 10, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 10, paddingVertical: 10, alignItems: 'center'},
+  reassignBtnText: {color: colors.primary, fontSize: 13, fontWeight: '600'},
+  msgBtn: {backgroundColor: '#2563EB', borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginBottom: 12, ...shadows.sm},
   msgBtnText: {color: colors.white, fontSize: 15, fontWeight: '700'},
+
+  modalOverlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'},
+  modalSheet: {backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, ...shadows.md},
+  modalTitle: {fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 4},
+  modalSub: {fontSize: 13, color: colors.textSecondary, marginBottom: 16},
+  dropdown: {borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, marginBottom: 8},
+  dropdownList: {borderColor: colors.border},
+  modalActions: {flexDirection: 'row', gap: 12, marginTop: 16},
+  cancelBtn: {flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingVertical: 13, alignItems: 'center'},
+  cancelBtnText: {fontSize: 14, color: colors.textSecondary, fontWeight: '500'},
+  confirmAssignBtn: {flex: 1, backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 13, alignItems: 'center'},
+  confirmAssignBtnText: {color: colors.white, fontSize: 14, fontWeight: '700'},
+  btnDisabled: {opacity: 0.5},
 });
 
 export default AdminDutyDetailScreen;

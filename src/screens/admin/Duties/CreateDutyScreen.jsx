@@ -243,9 +243,9 @@ const CreateDutyScreen = () => {
             error={errors.travellerName?.message} />
         )} />
 
-        {/* ── 7. Mob No of Traveller ── */}
+        {/* ── 7. Mobile No. of Traveller ── */}
         <Controller control={control} name="travellerPhone" render={({field: {onChange, value}}) => (
-          <AppInput label="Mob No of Traveller" value={value} onChangeText={onChange}
+          <AppInput label="Mobile No. of Traveller" value={value} onChangeText={onChange}
             placeholder="10-digit mobile number" keyboardType="phone-pad"
             error={errors.travellerPhone?.message} />
         )} />
