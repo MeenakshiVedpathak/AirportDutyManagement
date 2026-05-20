@@ -5,7 +5,7 @@ import {useSelector} from 'react-redux';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useDuties} from '../../../hooks/useDuties';
 import StatusBadge from '../../../components/common/StatusBadge';
-import {STATUS_DESCRIPTIONS} from '../../../constants/dutyStatus';
+import {STATUS_DESCRIPTIONS, DUTY_STATUS} from '../../../constants/dutyStatus';
 import LoadingOverlay from '../../../components/common/LoadingOverlay';
 import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
@@ -23,7 +23,7 @@ const OfficerDutyDetailScreen = () => {
   const navigation = useNavigation();
   const {params: {dutyId}} = useRoute();
   const {user} = useSelector(state => state.auth);
-  const {selectedDuty: duty, fetchDuty, confirmDuty, claimDuty, releaseDuty, isLoading} = useDuties();
+  const {selectedDuty: duty, fetchDuty, confirmDuty, claimDuty, releaseDuty, changeStatus, isLoading} = useDuties();
   const [acting, setActing] = useState(false);
 
   useEffect(() => {fetchDuty(dutyId);}, [dutyId]);
@@ -53,7 +53,8 @@ const OfficerDutyDetailScreen = () => {
       {text: 'Release', style: 'destructive', onPress: async () => {
         setActing(true);
         await releaseDuty(dutyId);
-        navigation.goBack();
+        setActing(false);
+        navigation.navigate('MyDuties', {screen: 'MyDutiesList'});
       }},
     ]);
   };
@@ -64,6 +65,30 @@ const OfficerDutyDetailScreen = () => {
       {text: 'Yes, Confirm', onPress: async () => {
         setActing(true);
         await confirmDuty(dutyId);
+        await fetchDuty(dutyId);
+        setActing(false);
+      }},
+    ]);
+  };
+
+  const handleComplete = () => {
+    Alert.alert('Complete Duty', 'Mark this duty as completed?', [
+      {text: 'Cancel', style: 'cancel'},
+      {text: 'Mark Completed', onPress: async () => {
+        setActing(true);
+        await changeStatus(dutyId, DUTY_STATUS.COMPLETED);
+        await fetchDuty(dutyId);
+        setActing(false);
+      }},
+    ]);
+  };
+
+  const handleCancelDuty = () => {
+    Alert.alert('Cancel Duty', 'Mark this duty as cancelled?', [
+      {text: 'No', style: 'cancel'},
+      {text: 'Yes, Cancel It', style: 'destructive', onPress: async () => {
+        setActing(true);
+        await changeStatus(dutyId, DUTY_STATUS.CANCELLED);
         await fetchDuty(dutyId);
         setActing(false);
       }},
@@ -143,7 +168,7 @@ const OfficerDutyDetailScreen = () => {
           </TouchableOpacity>
         )}
 
-        {isMine && !duty.officerConfirmed && (
+        {isMine && duty.status === DUTY_STATUS.UPCOMING && !duty.officerConfirmed && (
           <>
             <TouchableOpacity
               style={[styles.confirmBtn, acting && styles.btnDisabled]}
@@ -158,16 +183,42 @@ const OfficerDutyDetailScreen = () => {
           </>
         )}
 
-        {isMine && duty.officerConfirmed && (
+        {isMine && duty.status === DUTY_STATUS.UPCOMING && duty.officerConfirmed && (
           <>
             <View style={styles.confirmedBox}>
               <Text style={styles.confirmedIcon}>✓</Text>
               <Text style={styles.confirmedText}>You have confirmed this duty</Text>
             </View>
+            <TouchableOpacity
+              style={[styles.completeBtn, acting && styles.btnDisabled]}
+              onPress={handleComplete} disabled={acting} activeOpacity={0.8}>
+              {acting
+                ? <ActivityIndicator color={colors.white} />
+                : <Text style={styles.completeBtnText}>✅  Mark as Completed</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.cancelDutyBtn, acting && styles.btnDisabled]}
+              onPress={handleCancelDuty} disabled={acting} activeOpacity={0.8}>
+              <Text style={styles.cancelDutyBtnText}>✕  Mark as Cancelled</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.releaseBtn} onPress={handleRelease} disabled={acting}>
               <Text style={styles.releaseBtnText}>Release Duty</Text>
             </TouchableOpacity>
           </>
+        )}
+
+        {isMine && duty.status === DUTY_STATUS.COMPLETED && (
+          <View style={styles.doneBanner}>
+            <Text style={styles.doneBannerIcon}>✅</Text>
+            <Text style={styles.doneBannerText}>Duty Completed</Text>
+          </View>
+        )}
+
+        {isMine && duty.status === DUTY_STATUS.CANCELLED && (
+          <View style={[styles.doneBanner, styles.cancelledBanner]}>
+            <Text style={styles.doneBannerIcon}>✕</Text>
+            <Text style={[styles.doneBannerText, styles.cancelledBannerText]}>Duty Cancelled</Text>
+          </View>
         )}
 
       </ScrollView>
@@ -216,6 +267,21 @@ const styles = StyleSheet.create({
   },
   confirmedIcon: {fontSize: 20, color: '#16A34A', fontWeight: '800'},
   confirmedText: {fontSize: 15, fontWeight: '700', color: '#16A34A'},
+
+  completeBtn: {backgroundColor: '#16A34A', borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginBottom: 10, ...shadows.sm},
+  completeBtnText: {color: colors.white, fontSize: 16, fontWeight: '700'},
+  cancelDutyBtn: {borderWidth: 1.5, borderColor: '#DC2626', borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginBottom: 10},
+  cancelDutyBtnText: {color: '#DC2626', fontSize: 14, fontWeight: '700'},
+
+  doneBanner: {
+    backgroundColor: '#F0FDF4', borderRadius: 12, borderWidth: 1.5, borderColor: '#86EFAC',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 20, gap: 10, marginBottom: 10,
+  },
+  cancelledBanner: {backgroundColor: '#FEF2F2', borderColor: '#FECACA'},
+  doneBannerIcon: {fontSize: 22},
+  doneBannerText: {fontSize: 17, fontWeight: '700', color: '#16A34A'},
+  cancelledBannerText: {color: '#DC2626'},
 });
 
 export default OfficerDutyDetailScreen;

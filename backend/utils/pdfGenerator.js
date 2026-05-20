@@ -44,7 +44,7 @@ exports.generateDutyReportPDF = (duties, filters = {}) => {
       const pageW = doc.page.width - 60;
 
       // Header
-      doc.fontSize(16).fillColor(PRIMARY).font('Helvetica-Bold').text('Airport Duty Management', 30, 30);
+      doc.fontSize(16).fillColor(PRIMARY).font('Helvetica-Bold').text('Airport Protocol', 30, 30);
       doc.fontSize(9).fillColor('#6B7280').font('Helvetica').text('Income Tax Department — Airport Protocol', 30, 50);
       doc.fontSize(8).fillColor('#6B7280').text(`Generated: ${dateStr}`, 30, 62, { align: 'right', width: pageW });
       doc.moveTo(30, 74).lineTo(30 + pageW, 74).strokeColor(PRIMARY).lineWidth(2).stroke();
@@ -127,7 +127,7 @@ exports.generateDutyReportPDF = (duties, filters = {}) => {
 
       // Footer
       doc.fontSize(7).fillColor('#9CA3AF').font('Helvetica')
-        .text(`Airport Duty Management System  |  Total Records: ${total}  |  ${dateStr}`, 30, doc.page.height - 30, { width: pageW, align: 'center' });
+        .text(`Airport Protocol System  |  Total Records: ${total}  |  ${dateStr}`, 30, doc.page.height - 30, { width: pageW, align: 'center' });
 
       doc.end();
     } catch (err) {
@@ -150,7 +150,7 @@ exports.generateSubordinateReportPDF = (subordinates) => {
       const pageW = doc.page.width - 60;
 
       // Header
-      doc.fontSize(16).fillColor(PRIMARY).font('Helvetica-Bold').text('Airport Duty Management', 30, 30);
+      doc.fontSize(16).fillColor(PRIMARY).font('Helvetica-Bold').text('Airport Protocol', 30, 30);
       doc.fontSize(9).fillColor('#6B7280').font('Helvetica').text('Income Tax Department — Airport Protocol', 30, 50);
       doc.fontSize(8).fillColor('#6B7280').text(`Generated: ${dateStr}`, 30, 62, { align: 'right', width: pageW });
       doc.moveTo(30, 74).lineTo(30 + pageW, 74).strokeColor(PRIMARY).lineWidth(2).stroke();
@@ -204,7 +204,7 @@ exports.generateSubordinateReportPDF = (subordinates) => {
       });
 
       doc.fontSize(7).fillColor('#9CA3AF').font('Helvetica')
-        .text(`Airport Duty Management System  |  Total: ${subordinates.length}  |  ${dateStr}`, 30, doc.page.height - 30, { width: pageW, align: 'center' });
+        .text(`Airport Protocol System  |  Total: ${subordinates.length}  |  ${dateStr}`, 30, doc.page.height - 30, { width: pageW, align: 'center' });
 
       doc.end();
     } catch (err) {

@@ -22,7 +22,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // Swagger docs at /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customSiteTitle: 'Airport Duty API Docs',
+  customSiteTitle: 'Airport Protocol API Docs',
   swaggerOptions: { persistAuthorization: true },
 }));
 
@@ -39,7 +39,7 @@ app.use('/api/v1/reports', require('./routes/reports'));
 app.use('/api/v1/boarding-pass', require('./routes/boardingPass'));
 
 app.get('/', (req, res) => {
-  res.send('Airport Duty API Running');
+  res.send('Airport Protocol API Running');
 });
 
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));

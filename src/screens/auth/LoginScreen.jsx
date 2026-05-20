@@ -38,7 +38,7 @@ const LoginScreen = () => {
             <View style={styles.logoBox}>
               <Text style={styles.logoIcon}>✈️</Text>
             </View>
-            <Text style={styles.appName}>Airport Duty</Text>
+            <Text style={styles.appName}>Airport Protocol</Text>
             <Text style={styles.appSub}>Management System</Text>
           </View>
 
@@ -88,7 +88,7 @@ const LoginScreen = () => {
             />
           </View>
 
-          <Text style={styles.footer}>GTT DATA • Airport Duty Management v1.0</Text>
+          <Text style={styles.footer}>GTT DATA • Airport Protocol Management v1.0</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

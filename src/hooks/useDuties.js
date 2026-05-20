@@ -109,6 +109,7 @@ export const useDuties = () => {
     try {
       const res = await releaseDutyAPI(id);
       dispatch(updateDutyInList(res.data));
+      dispatch(setSelectedDuty(res.data));
       Toast.show({type: 'success', text1: 'Duty Released', text2: 'Duty is now available for others'});
       return res.data;
     } catch (err) {

@@ -4,9 +4,9 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Airport Duty Management API',
+      title: 'Airport Protocol API',
       version: '1.0.0',
-      description: 'REST API for Airport Duty Management System — GTT DATA',
+      description: 'REST API for Airport Protocol System — GTT DATA',
     },
     servers: [{ url: 'http://localhost:5000/api/v1' }],
     components: {
