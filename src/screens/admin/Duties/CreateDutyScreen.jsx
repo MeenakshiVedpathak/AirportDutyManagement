@@ -100,7 +100,7 @@ const CreateDutyScreen = () => {
     resolver: dutyResolver,
     defaultValues: {
       officerId: '', officerName: '',
-      travellerName: '', destinationRef: '', travellerPhone: '',
+      travellerName: '', travellerPhone: '',
       date: prefill?.date || toAPIDate(new Date()),
       reportingTime: toAPITime(new Date()),
       guestArrivalTime: null,
@@ -243,14 +243,7 @@ const CreateDutyScreen = () => {
             error={errors.travellerName?.message} />
         )} />
 
-        {/* ── 7. Destination / Ref ── */}
-        <Controller control={control} name="destinationRef" render={({field: {onChange, value}}) => (
-          <AppInput label="Destination / Ref" value={value} onChangeText={onChange}
-            placeholder="Destination address or reference note"
-            error={errors.destinationRef?.message} />
-        )} />
-
-        {/* ── 8. Mob No of Traveller ── */}
+        {/* ── 7. Mob No of Traveller ── */}
         <Controller control={control} name="travellerPhone" render={({field: {onChange, value}}) => (
           <AppInput label="Mob No of Traveller" value={value} onChangeText={onChange}
             placeholder="10-digit mobile number" keyboardType="phone-pad"
