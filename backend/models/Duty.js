@@ -5,10 +5,11 @@ const INCENTIVE_TYPES = ['BEFORE_OFFICE', 'AFTER_OFFICE'];
 
 const dutySchema = new mongoose.Schema(
   {
-    officerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    officerName: { type: String, required: true },
+    officerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    officerName: { type: String, default: '' },
     date: { type: String, required: true },
     reportingTime: { type: String, required: true },
+    guestArrivalTime: { type: String, default: null },
     officeType: {
       type: String,
       enum: ['REGULAR', 'BEFORE_OFFICE', 'AFTER_OFFICE', 'HOLIDAY'],
@@ -24,6 +25,7 @@ const dutySchema = new mongoose.Schema(
     terminalName: { type: String, required: true },
     arrivalDeparture: { type: String, enum: ['ARRIVAL', 'DEPARTURE'], required: true },
     noOfPassengers: { type: Number, default: 1, min: 1 },
+    officerConfirmed: { type: Boolean, default: false },
     status: {
       type: String,
       enum: ['UPCOMING', 'COMPLETED', 'CANCELLED'],

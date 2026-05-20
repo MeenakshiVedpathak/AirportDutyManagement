@@ -4,7 +4,9 @@ const { sendPushNotification } = require('../utils/fcm');
 
 exports.createDuty = async (req, res, next) => {
   try {
-    const duty = await Duty.create({ ...req.body, createdBy: req.user._id });
+    const body = { ...req.body, createdBy: req.user._id };
+    if (!body.officerId) { body.officerId = undefined; body.officerName = body.officerName || ''; }
+    const duty = await Duty.create(body);
     const dutyJson = duty.toJSON();
 
     if (duty.officerId) {
@@ -20,6 +22,33 @@ exports.createDuty = async (req, res, next) => {
     }
 
     res.status(201).json(dutyJson);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.confirmDuty = async (req, res, next) => {
+  try {
+    const duty = await Duty.findById(req.params.id);
+    if (!duty) return res.status(404).json({ message: 'Duty not found' });
+
+    if (req.user.role === 'OFFICER' && duty.officerId && duty.officerId.toString() !== req.user._id.toString())
+      return res.status(403).json({ message: 'Access denied' });
+
+    duty.officerConfirmed = true;
+    await duty.save();
+
+    const admins = await User.find({ role: 'ADMIN', fcmToken: { $ne: null } }).select('fcmToken');
+    for (const admin of admins) {
+      sendPushNotification({
+        token: admin.fcmToken,
+        title: 'Duty Confirmed',
+        body: `${duty.officerName || 'Officer'} confirmed duty for Flight ${duty.flightNo} on ${duty.date}`,
+        data: { dutyId: duty.toJSON().id },
+      });
+    }
+
+    res.json(duty.toJSON());
   } catch (err) {
     next(err);
   }
@@ -62,7 +91,7 @@ exports.getDutyById = async (req, res, next) => {
     const duty = await Duty.findById(req.params.id);
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
 
-    if (req.user.role === 'OFFICER' && duty.officerId.toString() !== req.user._id.toString())
+    if (req.user.role === 'OFFICER' && duty.officerId && duty.officerId.toString() !== req.user._id.toString())
       return res.status(403).json({ message: 'Access denied' });
 
     res.json(duty.toJSON());
@@ -81,7 +110,7 @@ exports.updateDutyStatus = async (req, res, next) => {
     const duty = await Duty.findById(req.params.id);
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
 
-    if (req.user.role === 'OFFICER' && duty.officerId.toString() !== req.user._id.toString())
+    if (req.user.role === 'OFFICER' && duty.officerId && duty.officerId.toString() !== req.user._id.toString())
       return res.status(403).json({ message: 'Access denied' });
 
     duty.status = status;

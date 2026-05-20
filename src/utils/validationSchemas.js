@@ -6,15 +6,16 @@ export const loginSchema = yup.object({
 });
 
 export const dutySchema = yup.object({
-  officerId: yup.string().required('Officer is required'),
+  officerId: yup.string().nullable().optional(),
+  officerName: yup.string().nullable().optional(),
   date: yup.string().required('Date is required'),
   reportingTime: yup.string().required('Reporting time is required'),
+  guestArrivalTime: yup.string().nullable().optional(),
   officeType: yup.string().required('Office type is required'),
   from: yup.string().required('From city is required'),
   to: yup.string().required('To city is required'),
   flightNo: yup.string().required('Flight number is required'),
   flightTime: yup.string().required('Flight time is required'),
-  officerName: yup.string().required('Officer name is required'),
   arrivalDeparture: yup.string().required('Arrival/Departure is required'),
   airportId: yup.string().required('Airport is required'),
   airportName: yup.string().required(),

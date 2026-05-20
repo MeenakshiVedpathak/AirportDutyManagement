@@ -12,5 +12,8 @@ export const getDutyById = id =>
 export const updateDutyStatus = (id, status) =>
   axiosInstance.patch(`/duties/${id}/status`, {status});
 
+export const confirmDuty = id =>
+  axiosInstance.patch(`/duties/${id}/confirm`);
+
 export const deleteDuty = id =>
   axiosInstance.delete(`/duties/${id}`);

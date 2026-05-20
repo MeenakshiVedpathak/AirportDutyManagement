@@ -1,7 +1,7 @@
 import {useDispatch, useSelector} from 'react-redux';
 import Toast from 'react-native-toast-message';
 import {fetchDutiesStart, fetchDutiesSuccess, appendDutiesSuccess, fetchDutiesFailure, updateDutyInList, addDutyToList, setSelectedDuty, setFilters as setFiltersAction} from '../store/slices/dutySlice';
-import {getDuties, getDutyById, createDuty, updateDutyStatus} from '../api/dutyApi';
+import {getDuties, getDutyById, createDuty, updateDutyStatus, confirmDuty as confirmDutyAPI} from '../api/dutyApi';
 
 const PAGE_SIZE = 20;
 
@@ -68,7 +68,19 @@ export const useDuties = () => {
     }
   };
 
+  const confirmDuty = async id => {
+    try {
+      const res = await confirmDutyAPI(id);
+      dispatch(updateDutyInList(res.data));
+      Toast.show({type: 'success', text1: 'Confirmed', text2: 'Duty confirmed successfully'});
+      return res.data;
+    } catch (err) {
+      Toast.show({type: 'error', text1: 'Error', text2: err?.message || 'Failed to confirm duty'});
+      return null;
+    }
+  };
+
   const setFilters = filters => dispatch(setFiltersAction(filters));
 
-  return {...dutyState, fetchDuties, loadMore, fetchDuty, addDuty, changeStatus, setFilters};
+  return {...dutyState, fetchDuties, loadMore, fetchDuty, addDuty, changeStatus, confirmDuty, setFilters};
 };

@@ -1,12 +1,36 @@
-import { Alert, Linking } from 'react-native';
-import { store } from '../store';
-import { API_BASE_URL as BASE_URL } from '../config';
+import { Alert } from 'react-native';
+import Share from 'react-native-share';
+import axiosInstance from '../api/axiosInstance';
 
-const buildPdfUrl = (path, filters = {}) => {
-  const token = store.getState().auth.token;
-  const params = new URLSearchParams({ token });
-  Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
-  return `${BASE_URL}${path}?${params.toString()}`;
+const arrayBufferToBase64 = buffer => {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+};
+
+const downloadAndSharePdf = async (path, filters = {}, filename) => {
+  const cleanFilters = Object.fromEntries(
+    Object.entries(filters).filter(([, v]) => v !== null && v !== undefined && v !== '')
+  );
+
+  const response = await axiosInstance.get(path, {
+    params: cleanFilters,
+    responseType: 'arraybuffer',
+    timeout: 60000,
+  });
+
+  const base64 = arrayBufferToBase64(response.data);
+
+  await Share.open({
+    url: `data:application/pdf;base64,${base64}`,
+    type: 'application/pdf',
+    filename,
+    saveToFiles: true,
+    failOnCancel: false,
+  });
 };
 
 export const exportDutyReportPDF = async (duties, filters = {}) => {
@@ -15,16 +39,18 @@ export const exportDutyReportPDF = async (duties, filters = {}) => {
     return;
   }
   try {
-    const url = buildPdfUrl('/reports/duties/pdf', {
+    const filename = `DutyReport_${new Date().toISOString().slice(0, 10)}.pdf`;
+    await downloadAndSharePdf('/reports/duties/pdf', {
       status: filters.status,
       airportId: filters.airportId,
       officerId: filters.officerId,
       dateFrom: filters.dateFrom,
       dateTo: filters.dateTo,
-    });
-    await Linking.openURL(url);
+    }, filename);
   } catch (e) {
-    Alert.alert('Export Failed', e?.message || 'Could not open PDF');
+    if (e?.error !== 'User did not share') {
+      Alert.alert('Export Failed', e?.message || 'Could not download PDF. Please try again.');
+    }
   }
 };
 
@@ -34,12 +60,14 @@ export const exportSubordinateReportPDF = async (subordinates, filters = {}) => 
     return;
   }
   try {
-    const url = buildPdfUrl('/reports/subordinates/pdf', {
+    const filename = `SubordinateReport_${new Date().toISOString().slice(0, 10)}.pdf`;
+    await downloadAndSharePdf('/reports/subordinates/pdf', {
       dateFrom: filters.dateFrom,
       dateTo: filters.dateTo,
-    });
-    await Linking.openURL(url);
+    }, filename);
   } catch (e) {
-    Alert.alert('Export Failed', e?.message || 'Could not open PDF');
+    if (e?.error !== 'User did not share') {
+      Alert.alert('Export Failed', e?.message || 'Could not download PDF. Please try again.');
+    }
   }
 };
