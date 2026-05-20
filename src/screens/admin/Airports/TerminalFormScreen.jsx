@@ -55,13 +55,13 @@ const TerminalFormScreen = () => {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Controller control={control} name="name" rules={{required: 'Terminal name is required'}}
           render={({field: {onChange, value}}) => (
-            <AppInput label="Terminal Name" value={value} onChangeText={onChange}
+            <AppInput required label="Terminal Name" value={value} onChangeText={onChange}
               placeholder="e.g. Terminal 1" autoCapitalize="words"
               error={errors.name?.message} />
           )} />
         <Controller control={control} name="code" rules={{required: 'Terminal code is required'}}
           render={({field: {onChange, value}}) => (
-            <AppInput label="Terminal Code" value={value} onChangeText={t => onChange(t.toUpperCase())}
+            <AppInput required label="Terminal Code" value={value} onChangeText={t => onChange(t.toUpperCase())}
               placeholder="e.g. T1" autoCapitalize="characters" maxLength={6}
               error={errors.code?.message} />
           )} />

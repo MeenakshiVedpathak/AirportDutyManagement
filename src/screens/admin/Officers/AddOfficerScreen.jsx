@@ -41,13 +41,13 @@ const AddOfficerScreen = () => {
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Controller control={control} name="name" render={({field: {onChange, value}}) => (
-          <AppInput label="Full Name" value={value} onChangeText={onChange} placeholder="Enter full name" autoCapitalize="words" error={errors.name?.message} />
+          <AppInput required label="Full Name" value={value} onChangeText={onChange} placeholder="Enter full name" autoCapitalize="words" error={errors.name?.message} />
         )} />
         <Controller control={control} name="employeeId" render={({field: {onChange, value}}) => (
-          <AppInput label="Employee ID" value={value} onChangeText={onChange} placeholder="e.g. EMP001" error={errors.employeeId?.message} />
+          <AppInput required label="Employee ID" value={value} onChangeText={onChange} placeholder="e.g. EMP001" error={errors.employeeId?.message} />
         )} />
         <Controller control={control} name="phone" render={({field: {onChange, value}}) => (
-          <AppInput label="Phone Number" value={value} onChangeText={onChange} placeholder="10-digit mobile number" keyboardType="phone-pad" error={errors.phone?.message} />
+          <AppInput required label="Phone Number" value={value} onChangeText={onChange} placeholder="10-digit mobile number" keyboardType="phone-pad" error={errors.phone?.message} />
         )} />
         <Controller control={control} name="email" render={({field: {onChange, value}}) => (
           <AppInput label="Email" value={value} onChangeText={onChange} placeholder="subordinate@gttdata.ai" keyboardType="email-address" autoCapitalize="none" error={errors.email?.message} />

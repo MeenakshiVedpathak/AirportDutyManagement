@@ -4,13 +4,17 @@ import {View, TextInput, Text, StyleSheet, TouchableOpacity} from 'react-native'
 import {colors} from '../../theme/colors';
 import {spacing as sp} from '../../theme/spacing';
 
-const AppInput = ({label, error, style, secureTextEntry, ...props}) => {
+const AppInput = ({label, required, error, style, secureTextEntry, ...props}) => {
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(true);
 
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Text style={styles.label}>
+          {label}{required && <Text style={styles.requiredStar}> *</Text>}
+        </Text>
+      )}
       <View style={[styles.inputRow, focused && styles.focused, !!error && styles.error]}>
         <TextInput
           style={[styles.input, style]}
@@ -49,6 +53,7 @@ const styles = StyleSheet.create({
   eyeBtn: {paddingHorizontal: 12},
   eyeIcon: {fontSize: 16},
   errorText: {fontSize: 11, color: colors.error, marginTop: 3},
+  requiredStar: {color: colors.error, fontWeight: '700'},
 });
 
 export default AppInput;

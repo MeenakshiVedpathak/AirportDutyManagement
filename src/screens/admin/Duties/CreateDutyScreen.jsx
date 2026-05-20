@@ -187,7 +187,7 @@ const CreateDutyScreen = () => {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
 
         {/* ── 1. Date & Day ── */}
-        <Text style={styles.sectionLabel}>Date & Day</Text>
+        <Text style={styles.sectionLabel}>Date & Day <Text style={styles.requiredStar}>*</Text></Text>
         <View style={styles.row}>
           <TouchableOpacity style={[styles.dateBtn, {flex: 2}]} onPress={() => setShowDatePicker(true)}>
             <Text style={styles.dateBtnText}>{moment(selectedDate).format('DD MMM YYYY')}</Text>
@@ -202,16 +202,45 @@ const CreateDutyScreen = () => {
         )}
 
         {/* ── 2. Arrival / Departure ── */}
-        <Text style={styles.sectionLabel}>Arrival / Departure</Text>
+        <Text style={styles.sectionLabel}>Arrival / Departure <Text style={styles.requiredStar}>*</Text></Text>
         <Controller control={control} name="arrivalDeparture" render={({field: {onChange, value}}) => (
           <DropDownPicker open={arrDepOpen} setOpen={setArrDepOpen} value={value} setValue={cb => onChange(cb(value))}
             items={ARRIVAL_DEPARTURE} placeholder="Select Arrival/Departure" style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownList} zIndex={8000} listMode="SCROLLVIEW" />
+            dropDownContainerStyle={styles.dropdownList} zIndex={9000} listMode="SCROLLVIEW" />
         )} />
         {errors.arrivalDeparture && <Text style={styles.err}>{errors.arrivalDeparture.message}</Text>}
 
-        {/* ── 3. Flight Time ── */}
-        <Text style={styles.sectionLabel}>Flight Time</Text>
+        {/* ── 3. Airport ── */}
+        <Text style={styles.sectionLabel}>Airport <Text style={styles.requiredStar}>*</Text></Text>
+        <Controller control={control} name="airportId" render={({field: {value}}) => (
+          <DropDownPicker open={airportOpen} setOpen={setAirportOpen} value={value}
+            setValue={cb => handleAirportChange(cb(value))}
+            items={airports.filter(a => a.isActive).map(a => ({label: `${a.name} (${a.code})`, value: a.id}))}
+            placeholder="Select Airport" style={styles.dropdown}
+            dropDownContainerStyle={styles.dropdownList} zIndex={8000} listMode="SCROLLVIEW" />
+        )} />
+        {errors.airportId && <Text style={styles.err}>{errors.airportId.message}</Text>}
+
+        {/* ── 4. Terminal ── */}
+        <Text style={styles.sectionLabel}>Terminal <Text style={styles.requiredStar}>*</Text></Text>
+        <Controller control={control} name="terminalId" render={({field: {onChange, value}}) => (
+          <DropDownPicker open={terminalOpen} setOpen={setTerminalOpen} value={value}
+            setValue={cb => {
+              const tId = cb(value);
+              const terminal = terminals.find(t => t.id === tId);
+              onChange(tId);
+              setValue('terminalName', terminal?.name || '');
+            }}
+            items={terminals.filter(t => t.isActive).map(t => ({label: `${t.name} (${t.code})`, value: t.id}))}
+            placeholder={terminals.length === 0 ? 'Select airport first' : 'Select Terminal'}
+            disabled={terminals.length === 0}
+            style={[styles.dropdown, terminals.length === 0 && styles.dropdownDisabled]}
+            dropDownContainerStyle={styles.dropdownList} zIndex={7000} listMode="SCROLLVIEW" />
+        )} />
+        {errors.terminalId && <Text style={styles.err}>{errors.terminalId.message}</Text>}
+
+        {/* ── 5. Flight Time ── */}
+        <Text style={styles.sectionLabel}>Flight Time <Text style={styles.requiredStar}>*</Text></Text>
         <TouchableOpacity style={styles.dateBtn} onPress={() => setShowFlightTimePicker(true)}>
           <Text style={styles.dateBtnText}>{moment(flightTime).format('HH:mm')}</Text>
         </TouchableOpacity>
@@ -221,20 +250,20 @@ const CreateDutyScreen = () => {
         )}
         {errors.flightTime && <Text style={styles.err}>{errors.flightTime.message}</Text>}
 
-        {/* ── 4. Flight No ── */}
+        {/* ── 6. Flight No ── */}
         <Controller control={control} name="flightNo" render={({field: {onChange, value}}) => (
-          <AppInput label="Flight Number" value={value} onChangeText={onChange}
+          <AppInput required label="Flight Number" value={value} onChangeText={onChange}
             placeholder="e.g. 6E 201" autoCapitalize="characters" error={errors.flightNo?.message} />
         )} />
 
-        {/* ── 6. Name of Traveller ── */}
+        {/* ── 7. Name of Traveller ── */}
         <Controller control={control} name="travellerName" render={({field: {onChange, value}}) => (
           <AppInput label="Name of Traveller" value={value} onChangeText={onChange}
             placeholder="Enter traveller's full name" autoCapitalize="words"
             error={errors.travellerName?.message} />
         )} />
 
-        {/* ── 7. Mobile No. of Traveller ── */}
+        {/* ── 8. Mobile No. of Traveller ── */}
         <Controller control={control} name="travellerPhone" render={({field: {onChange, value}}) => (
           <AppInput label="Mobile No. of Traveller" value={value} onChangeText={onChange}
             placeholder="10-digit mobile number" keyboardType="phone-pad"
@@ -242,26 +271,26 @@ const CreateDutyScreen = () => {
         )} />
 
         {/* ── 9. From ── */}
-        <Text style={styles.sectionLabel}>From</Text>
+        <Text style={styles.sectionLabel}>From <Text style={styles.requiredStar}>*</Text></Text>
         <Controller control={control} name="from" render={({field: {onChange, value}}) => (
           <DropDownPicker open={fromOpen} setOpen={setFromOpen} value={value} setValue={cb => onChange(cb(value))}
             items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select From City" style={styles.dropdown} searchable
-            dropDownContainerStyle={styles.dropdownList} zIndex={7000} listMode="SCROLLVIEW" />
+            dropDownContainerStyle={styles.dropdownList} zIndex={6000} listMode="SCROLLVIEW" />
         )} />
         {errors.from && <Text style={styles.err}>{errors.from.message}</Text>}
 
-        {/* ── To ── */}
-        <Text style={styles.sectionLabel}>To</Text>
+        {/* ── 10. To ── */}
+        <Text style={styles.sectionLabel}>To <Text style={styles.requiredStar}>*</Text></Text>
         <Controller control={control} name="to" render={({field: {onChange, value}}) => (
           <DropDownPicker open={toOpen} setOpen={setToOpen} value={value} setValue={cb => onChange(cb(value))}
             items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select To City" style={styles.dropdown} searchable
-            dropDownContainerStyle={styles.dropdownList} zIndex={6000} listMode="SCROLLVIEW" />
+            dropDownContainerStyle={styles.dropdownList} zIndex={5000} listMode="SCROLLVIEW" />
         )} />
         {errors.to && <Text style={styles.err}>{errors.to.message}</Text>}
 
-        {/* ── Reporting Time (auto-calculated) ── */}
+        {/* ── 11. Reporting Time (auto-calculated) ── */}
         <Text style={styles.sectionLabel}>
-          Reporting Time at Airport
+          Reporting Time at Airport <Text style={styles.requiredStar}>*</Text>
           <Text style={styles.autoHint}>
             {arrivalDepartureValue === 'ARRIVAL' ? '  (auto: 1 hr before flight)' : '  (auto: 2 hrs before flight)'}
           </Text>
@@ -275,7 +304,7 @@ const CreateDutyScreen = () => {
         )}
         {errors.reportingTime && <Text style={styles.err}>{errors.reportingTime.message}</Text>}
 
-        {/* ── Guest Arrival Time (optional) ── */}
+        {/* ── 12. Guest Arrival Time (optional) ── */}
         <View style={styles.optionalRow}>
           <Text style={styles.sectionLabel}>Guest Arrival Time</Text>
           <Text style={styles.optionalTag}>Optional</Text>
@@ -299,7 +328,7 @@ const CreateDutyScreen = () => {
             onChange={(_, t) => { setShowGuestArrivalPicker(false); if (t) { setGuestArrivalTime(t); setValue('guestArrivalTime', toAPITime(t)); } }} />
         )}
 
-        {/* ── Assign To (optional) ── */}
+        {/* ── 13. Assign To (optional) ── */}
         <View style={styles.optionalRow}>
           <Text style={styles.sectionLabel}>Assign To</Text>
           <Text style={styles.optionalTag}>Optional</Text>
@@ -308,53 +337,24 @@ const CreateDutyScreen = () => {
           <DropDownPicker open={officerOpen} setOpen={setOfficerOpen} value={value || null} setValue={cb => onChange(cb(value))}
             items={officerItems} placeholder="Assign later or select now"
             style={styles.dropdown} dropDownContainerStyle={styles.dropdownList}
-            zIndex={5000} listMode="SCROLLVIEW" />
+            zIndex={4000} listMode="SCROLLVIEW" />
         )} />
 
-        {/* ── Holiday / Office Time ── */}
-        <Text style={styles.sectionLabel}>Holiday / Office Time</Text>
+        {/* ── 14. Holiday / Office Time ── */}
+        <Text style={styles.sectionLabel}>Holiday / Office Time <Text style={styles.requiredStar}>*</Text></Text>
         <Controller control={control} name="officeType" render={({field: {onChange, value}}) => (
           <DropDownPicker open={officeTypeOpen} setOpen={setOfficeTypeOpen} value={value} setValue={cb => onChange(cb(value))}
             items={OFFICE_TYPES} placeholder="Select Type" style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownList} zIndex={4000} listMode="SCROLLVIEW" />
+            dropDownContainerStyle={styles.dropdownList} zIndex={3000} listMode="SCROLLVIEW" />
         )} />
         {errors.officeType && <Text style={styles.err}>{errors.officeType.message}</Text>}
 
-        {/* ── No. of Passengers ── */}
+        {/* ── 15. No. of Passengers ── */}
         <Controller control={control} name="noOfPassengers" render={({field: {onChange, value}}) => (
-          <AppInput label="No. of Passengers" value={String(value ?? '')}
+          <AppInput required label="No. of Passengers" value={String(value ?? '')}
             onChangeText={v => onChange(v.replace(/[^0-9]/g, ''))}
             keyboardType="numeric" placeholder="1" error={errors.noOfPassengers?.message} />
         )} />
-
-        {/* ── Airport ── */}
-        <Text style={styles.sectionLabel}>Airport</Text>
-        <Controller control={control} name="airportId" render={({field: {value}}) => (
-          <DropDownPicker open={airportOpen} setOpen={setAirportOpen} value={value}
-            setValue={cb => handleAirportChange(cb(value))}
-            items={airports.filter(a => a.isActive).map(a => ({label: `${a.name} (${a.code})`, value: a.id}))}
-            placeholder="Select Airport" style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownList} zIndex={3000} listMode="SCROLLVIEW" />
-        )} />
-        {errors.airportId && <Text style={styles.err}>{errors.airportId.message}</Text>}
-
-        {/* ── Terminal ── */}
-        <Text style={styles.sectionLabel}>Terminal</Text>
-        <Controller control={control} name="terminalId" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={terminalOpen} setOpen={setTerminalOpen} value={value}
-            setValue={cb => {
-              const tId = cb(value);
-              const terminal = terminals.find(t => t.id === tId);
-              onChange(tId);
-              setValue('terminalName', terminal?.name || '');
-            }}
-            items={terminals.filter(t => t.isActive).map(t => ({label: `${t.name} (${t.code})`, value: t.id}))}
-            placeholder={terminals.length === 0 ? 'Select airport first' : 'Select Terminal'}
-            disabled={terminals.length === 0}
-            style={[styles.dropdown, terminals.length === 0 && styles.dropdownDisabled]}
-            dropDownContainerStyle={styles.dropdownList} zIndex={2000} listMode="SCROLLVIEW" />
-        )} />
-        {errors.terminalId && <Text style={styles.err}>{errors.terminalId.message}</Text>}
 
         <AppButton title="Create Duty" onPress={handleSubmit(onSubmit, onFormError)} loading={isSubmitting} style={styles.btn} />
       </ScrollView>
@@ -371,6 +371,7 @@ const styles = StyleSheet.create({
   scanHeaderText: {fontSize: 13, color: colors.primary, fontWeight: '600'},
   content: {padding: 16, paddingBottom: 40},
   sectionLabel: {fontSize: 13, fontWeight: '500', color: colors.textSecondary, marginBottom: 5, marginTop: 8},
+  requiredStar: {color: colors.error, fontWeight: '700'},
   autoHint: {fontSize: 11, color: colors.primary, fontStyle: 'italic'},
   optionalRow: {flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 5},
   optionalTag: {fontSize: 10, color: colors.white, backgroundColor: colors.textSecondary, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2},

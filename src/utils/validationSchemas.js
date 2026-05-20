@@ -31,6 +31,6 @@ export const dutySchema = yup.object({
 export const addOfficerSchema = yup.object({
   name: yup.string().required('Name is required'),
   phone: yup.string().matches(/^[6-9]\d{9}$/, 'Invalid phone number').required('Phone is required'),
-  email: yup.string().email('Invalid email').required('Email is required'),
+  email: yup.string().email('Invalid email').nullable().optional(),
   employeeId: yup.string().required('Employee ID is required'),
 });

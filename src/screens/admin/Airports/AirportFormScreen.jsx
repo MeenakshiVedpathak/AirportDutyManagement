@@ -52,19 +52,19 @@ const AirportFormScreen = () => {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Controller control={control} name="name" rules={{required: 'Airport name is required'}}
           render={({field: {onChange, value}}) => (
-            <AppInput label="Airport Name" value={value} onChangeText={onChange}
+            <AppInput required label="Airport Name" value={value} onChangeText={onChange}
               placeholder="e.g. Chhatrapati Shivaji Maharaj International Airport"
               error={errors.name?.message} />
           )} />
         <Controller control={control} name="code" rules={{required: 'Code is required'}}
           render={({field: {onChange, value}}) => (
-            <AppInput label="Airport Code" value={value} onChangeText={t => onChange(t.toUpperCase())}
+            <AppInput required label="Airport Code" value={value} onChangeText={t => onChange(t.toUpperCase())}
               placeholder="e.g. BOM" autoCapitalize="characters" maxLength={6}
               error={errors.code?.message} />
           )} />
         <Controller control={control} name="city" rules={{required: 'City is required'}}
           render={({field: {onChange, value}}) => (
-            <AppInput label="City" value={value} onChangeText={onChange}
+            <AppInput required label="City" value={value} onChangeText={onChange}
               placeholder="e.g. Mumbai" autoCapitalize="words"
               error={errors.city?.message} />
           )} />
