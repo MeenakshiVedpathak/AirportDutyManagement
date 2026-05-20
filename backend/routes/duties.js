@@ -9,6 +9,7 @@ const {
   getDuties,
   getDutyById,
   updateDutyStatus,
+  updateDuty,
   deleteDuty,
 } = require('../controllers/dutyController');
 
@@ -22,6 +23,7 @@ router.patch('/:id/claim', claimDuty);
 router.patch('/:id/release', releaseDuty);
 router.patch('/:id/confirm', confirmDuty);
 router.patch('/:id/status', updateDutyStatus);
+router.put('/:id', adminOnly, updateDuty);
 router.delete('/:id', adminOnly, deleteDuty);
 
 module.exports = router;

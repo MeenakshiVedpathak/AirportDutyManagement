@@ -7,6 +7,7 @@ import AdminDashboardScreen from '../screens/admin/Dashboard/AdminDashboardScree
 import AllDutiesScreen from '../screens/admin/Duties/AllDutiesScreen';
 import CreateDutyScreen from '../screens/admin/Duties/CreateDutyScreen';
 import DutyDetailScreen from '../screens/admin/Duties/DutyDetailScreen';
+import EditDutyScreen from '../screens/admin/Duties/EditDutyScreen';
 import BoardingPassScanScreen from '../screens/officer/Duties/BoardingPassScanScreen';
 import OfficerListScreen from '../screens/admin/Officers/OfficerListScreen';
 import AddOfficerScreen from '../screens/admin/Officers/AddOfficerScreen';
@@ -32,6 +33,7 @@ const DutiesNavigator = () => (
     <DutyStack.Screen name="AllDuties" component={AllDutiesScreen} />
     <DutyStack.Screen name="CreateDuty" component={CreateDutyScreen} />
     <DutyStack.Screen name="DutyDetail" component={DutyDetailScreen} />
+    <DutyStack.Screen name="EditDuty" component={EditDutyScreen} />
     <DutyStack.Screen name="BoardingPassScan" component={BoardingPassScanScreen} />
   </DutyStack.Navigator>
 );

@@ -55,11 +55,14 @@ const dutySlice = createSlice({
     addDutyToList(state, action) {
       state.list.unshift(action.payload);
     },
+    removeDutyFromList(state, action) {
+      state.list = state.list.filter(d => d.id !== action.payload);
+    },
   },
 });
 
 export const {
   fetchDutiesStart, fetchDutiesSuccess, appendDutiesSuccess, fetchDutiesFailure,
-  setSelectedDuty, setFilters, clearFilters, updateDutyInList, addDutyToList,
+  setSelectedDuty, setFilters, clearFilters, updateDutyInList, addDutyToList, removeDutyFromList,
 } = dutySlice.actions;
 export default dutySlice.reducer;

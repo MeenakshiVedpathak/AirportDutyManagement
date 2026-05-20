@@ -1,7 +1,7 @@
 import {useDispatch, useSelector} from 'react-redux';
 import Toast from 'react-native-toast-message';
-import {fetchDutiesStart, fetchDutiesSuccess, appendDutiesSuccess, fetchDutiesFailure, updateDutyInList, addDutyToList, setSelectedDuty, setFilters as setFiltersAction} from '../store/slices/dutySlice';
-import {getDuties, getDutyById, createDuty, updateDutyStatus, confirmDuty as confirmDutyAPI, assignOfficer as assignOfficerAPI, claimDuty as claimDutyAPI, releaseDuty as releaseDutyAPI} from '../api/dutyApi';
+import {fetchDutiesStart, fetchDutiesSuccess, appendDutiesSuccess, fetchDutiesFailure, updateDutyInList, addDutyToList, removeDutyFromList, setSelectedDuty, setFilters as setFiltersAction} from '../store/slices/dutySlice';
+import {getDuties, getDutyById, createDuty, updateDutyStatus, updateDuty as updateDutyAPI, deleteDuty as deleteDutyAPI, confirmDuty as confirmDutyAPI, assignOfficer as assignOfficerAPI, claimDuty as claimDutyAPI, releaseDuty as releaseDutyAPI} from '../api/dutyApi';
 
 const PAGE_SIZE = 20;
 
@@ -118,7 +118,33 @@ export const useDuties = () => {
     }
   };
 
+  const editDuty = async (id, data) => {
+    try {
+      const res = await updateDutyAPI(id, data);
+      dispatch(updateDutyInList(res.data));
+      dispatch(setSelectedDuty(res.data));
+      Toast.show({type: 'success', text1: 'Duty Updated', text2: 'Changes saved successfully'});
+      return res.data;
+    } catch (err) {
+      Toast.show({type: 'error', text1: 'Error', text2: err?.message || 'Failed to update duty'});
+      return null;
+    }
+  };
+
+  const removeDuty = async id => {
+    try {
+      await deleteDutyAPI(id);
+      dispatch(removeDutyFromList(id));
+      dispatch(setSelectedDuty(null));
+      Toast.show({type: 'success', text1: 'Duty Deleted'});
+      return true;
+    } catch (err) {
+      Toast.show({type: 'error', text1: 'Error', text2: err?.message || 'Failed to delete duty'});
+      return false;
+    }
+  };
+
   const setFilters = filters => dispatch(setFiltersAction(filters));
 
-  return {...dutyState, fetchDuties, loadMore, fetchDuty, addDuty, changeStatus, confirmDuty, assignOfficer, claimDuty, releaseDuty, setFilters};
+  return {...dutyState, fetchDuties, loadMore, fetchDuty, addDuty, editDuty, removeDuty, changeStatus, confirmDuty, assignOfficer, claimDuty, releaseDuty, setFilters};
 };

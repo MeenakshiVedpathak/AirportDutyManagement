@@ -199,6 +199,26 @@ exports.updateDutyStatus = async (req, res, next) => {
   }
 };
 
+exports.updateDuty = async (req, res, next) => {
+  try {
+    const allowed = [
+      'date', 'reportingTime', 'guestArrivalTime', 'officeType',
+      'from', 'to', 'flightNo', 'flightTime', 'airportId', 'airportName',
+      'terminalId', 'terminalName', 'arrivalDeparture', 'noOfPassengers',
+      'travellerName', 'travellerPhone',
+    ];
+    const duty = await Duty.findById(req.params.id);
+    if (!duty) return res.status(404).json({ message: 'Duty not found' });
+    for (const field of allowed) {
+      if (req.body[field] !== undefined) duty[field] = req.body[field];
+    }
+    await duty.save();
+    res.json(duty.toJSON());
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.deleteDuty = async (req, res, next) => {
   try {
     const duty = await Duty.findByIdAndDelete(req.params.id);

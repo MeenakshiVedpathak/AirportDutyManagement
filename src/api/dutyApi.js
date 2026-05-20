@@ -24,5 +24,8 @@ export const claimDuty = id =>
 export const releaseDuty = id =>
   axiosInstance.patch(`/duties/${id}/release`);
 
+export const updateDuty = (id, data) =>
+  axiosInstance.put(`/duties/${id}`, data);
+
 export const deleteDuty = id =>
   axiosInstance.delete(`/duties/${id}`);

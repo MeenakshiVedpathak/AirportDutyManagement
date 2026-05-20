@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSelector, useDispatch} from 'react-redux';
@@ -28,8 +28,9 @@ const AdminDutyDetailScreen = () => {
   const navigation = useNavigation();
   const {params: {dutyId}} = useRoute();
   const dispatch = useDispatch();
-  const {selectedDuty: duty, fetchDuty, changeStatus, assignOfficer, isLoading} = useDuties();
+  const {selectedDuty: duty, fetchDuty, changeStatus, assignOfficer, removeDuty, isLoading} = useDuties();
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [msgModalVisible, setMsgModalVisible] = useState(false);
   const [assignModalVisible, setAssignModalVisible] = useState(false);
   const [officerOpen, setOfficerOpen] = useState(false);
@@ -57,6 +58,18 @@ const AdminDutyDetailScreen = () => {
     setUpdating(false);
   };
 
+  const handleDelete = () => {
+    Alert.alert('Delete Duty', 'Are you sure you want to delete this duty? This cannot be undone.', [
+      {text: 'Cancel', style: 'cancel'},
+      {text: 'Delete', style: 'destructive', onPress: async () => {
+        setDeleting(true);
+        const ok = await removeDuty(dutyId);
+        setDeleting(false);
+        if (ok) navigation.navigate('AllDuties');
+      }},
+    ]);
+  };
+
   const handleAssign = async () => {
     if (!selectedOfficerId) return;
     const officer = officers.find(o => o.id?.toString() === selectedOfficerId);
@@ -81,7 +94,16 @@ const AdminDutyDetailScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>← Back</Text></TouchableOpacity>
         <Text style={styles.title}>Duty Detail</Text>
-        <View style={{width: 60}} />
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('EditDuty')}>
+            <Text style={styles.editBtnText}>✎ Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} disabled={deleting}>
+            {deleting
+              ? <ActivityIndicator color={colors.error} size="small" />
+              : <Text style={styles.deleteBtnText}>🗑</Text>}
+          </TouchableOpacity>
+        </View>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
 
@@ -206,6 +228,11 @@ const styles = StyleSheet.create({
   header: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border},
   back: {color: colors.primary, fontSize: 15},
   title: {fontSize: 18, fontWeight: '700', color: colors.text},
+  headerActions: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  editBtn: {backgroundColor: colors.primary + '15', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.primary + '40'},
+  editBtnText: {fontSize: 13, color: colors.primary, fontWeight: '600'},
+  deleteBtn: {backgroundColor: '#FEE2E2', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: '#FECACA', minWidth: 36, alignItems: 'center'},
+  deleteBtnText: {fontSize: 15},
   content: {padding: 16, paddingBottom: 40},
   card: {backgroundColor: colors.white, borderRadius: 12, padding: 16, marginBottom: 12, ...shadows.sm},
   topRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'},
