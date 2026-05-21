@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useDispatch, useSelector} from 'react-redux';
+import {useNavigation} from '@react-navigation/native';
 import {fetchReportStart, fetchDutyReportSuccess, fetchReportFailure} from '../../../store/slices/reportSlice';
 import {fetchOfficersStart, fetchOfficersSuccess} from '../../../store/slices/officerSlice';
 import {getDutyReport} from '../../../api/reportApi';
@@ -24,6 +25,7 @@ const SummaryCard = ({label, value, color}) => (
 );
 
 const DutyReportScreen = () => {
+  const navigation = useNavigation();
   const dispatch = useDispatch();
   const {dutyReport, dutyReportSummary, isLoading} = useSelector(state => state.reports);
   const airports = useSelector(state => state.airports.list);
@@ -67,7 +69,12 @@ const DutyReportScreen = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.title}>Duty Report</Text>
+        <View style={styles.tabs}>
+          <Text style={[styles.tab, styles.activeTab]}>Duty Report</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('SubordinateReport')}>
+            <Text style={styles.tab}>Subordinate Report</Text>
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity style={styles.exportBtn} onPress={handleExport}>
           <Text style={styles.exportText}>⬇ Export PDF</Text>
         </TouchableOpacity>
@@ -148,6 +155,9 @@ const colStyle = h => ({width: COL_WIDTHS[h] || 80});
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: colors.background},
   header: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border},
+  tabs: {flexDirection: 'row', gap: 20},
+  tab: {fontSize: 15, color: colors.textSecondary, paddingBottom: 4},
+  activeTab: {color: colors.primary, fontWeight: '700', borderBottomWidth: 2, borderBottomColor: colors.primary},
   title: {fontSize: 20, fontWeight: '700', color: colors.text},
   exportBtn: {backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8},
   exportText: {color: colors.white, fontWeight: '600', fontSize: 13},

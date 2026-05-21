@@ -61,7 +61,7 @@ exports.getSubordinateReport = async (req, res, next) => {
 
     const report = officers.map(officer => {
       const officerDuties = duties.filter(
-        d => d.officerId.toString() === officer._id.toString()
+        d => d.officerId && d.officerId.toString() === officer._id.toString()
       );
       const completedIncentive = officerDuties.filter(
         d => d.status === 'COMPLETED' && INCENTIVE_TYPES.includes(d.officeType)
@@ -75,6 +75,8 @@ exports.getSubordinateReport = async (req, res, next) => {
         beforeOffice: officerDuties.filter(d => d.officeType === 'BEFORE_OFFICE').length,
         afterOffice: officerDuties.filter(d => d.officeType === 'AFTER_OFFICE').length,
         totalIncentive: completedIncentive.length * INCENTIVE_AMOUNT,
+        officeTimeDuty: officerDuties.filter(d => d.officeType === 'REGULAR').length,
+        holidayBeforeAfterDuty: officerDuties.filter(d => ['HOLIDAY', 'BEFORE_OFFICE', 'AFTER_OFFICE'].includes(d.officeType)).length,
       };
     });
 
@@ -120,7 +122,7 @@ exports.exportSubordinatePDF = async (req, res, next) => {
     const officers = await User.find({ role: 'OFFICER' });
     const duties = await Duty.find(dutyFilter);
     const report = officers.map(officer => {
-      const officerDuties = duties.filter(d => d.officerId.toString() === officer._id.toString());
+      const officerDuties = duties.filter(d => d.officerId && d.officerId.toString() === officer._id.toString());
       const completedIncentive = officerDuties.filter(d => d.status === 'COMPLETED' && ['BEFORE_OFFICE', 'AFTER_OFFICE'].includes(d.officeType));
       return {
         officer: officer.toJSON(),
@@ -131,6 +133,8 @@ exports.exportSubordinatePDF = async (req, res, next) => {
         beforeOffice: officerDuties.filter(d => d.officeType === 'BEFORE_OFFICE').length,
         afterOffice: officerDuties.filter(d => d.officeType === 'AFTER_OFFICE').length,
         totalIncentive: completedIncentive.length * 500,
+        officeTimeDuty: officerDuties.filter(d => d.officeType === 'REGULAR').length,
+        holidayBeforeAfterDuty: officerDuties.filter(d => ['HOLIDAY', 'BEFORE_OFFICE', 'AFTER_OFFICE'].includes(d.officeType)).length,
       };
     });
     const base64 = await generateSubordinateReportPDF(report);

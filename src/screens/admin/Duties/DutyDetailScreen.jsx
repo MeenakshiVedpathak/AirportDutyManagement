@@ -13,7 +13,6 @@ import WhatsAppMessageModal from '../../../components/common/WhatsAppMessageModa
 import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
 import {formatDate, formatTime} from '../../../utils/dateUtils';
-import {isIncentiveEligible} from '../../../utils/incentiveUtils';
 import {fetchOfficersStart, fetchOfficersSuccess, fetchOfficersFailure} from '../../../store/slices/officerSlice';
 import {getOfficers} from '../../../api/officerApi';
 
@@ -116,9 +115,7 @@ const AdminDutyDetailScreen = () => {
             <StatusBadge status={duty.status} />
           </View>
           <Text style={styles.statusDesc}>{STATUS_DESCRIPTIONS[duty.status]}</Text>
-          {isIncentiveEligible(duty.officeType) && (
-            <View style={styles.incentiveBadge}><Text style={styles.incentiveText}>₹500 Incentive Eligible</Text></View>
-          )}
+
           <View style={[styles.confirmBadge, confirmed ? styles.confirmBadgeYes : styles.confirmBadgeNo]}>
             <Text style={[styles.confirmBadgeText, confirmed ? styles.confirmBadgeTextYes : styles.confirmBadgeTextNo]}>
               {confirmed ? '✓ Subordinate Confirmed' : '⏳ Awaiting Confirmation'}
@@ -238,8 +235,6 @@ const styles = StyleSheet.create({
   topRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'},
   srNo: {fontSize: 12, color: colors.textSecondary},
   officerName: {fontSize: 18, fontWeight: '700', color: colors.text, marginTop: 2},
-  incentiveBadge: {backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginTop: 10},
-  incentiveText: {fontSize: 12, fontWeight: '600', color: '#92400E'},
   statusDesc: {fontSize: 12, color: colors.textSecondary, marginTop: 8, lineHeight: 17},
   confirmBadge: {borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start', marginTop: 10},
   confirmBadgeYes: {backgroundColor: '#DCFCE7'},

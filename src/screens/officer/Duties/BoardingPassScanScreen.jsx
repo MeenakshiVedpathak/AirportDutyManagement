@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import {useSelector} from 'react-redux';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import {NativeModules} from 'react-native';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
@@ -17,6 +18,8 @@ import AppButton from '../../../components/common/AppButton';
 
 const BoardingPassScanScreen = () => {
   const navigation = useNavigation();
+  const {user} = useSelector(state => state.auth);
+  const isOfficer = user?.role === 'OFFICER';
 
   const [imageUri, setImageUri] = useState(null);
   const [scanning, setScanning] = useState(false);
@@ -155,6 +158,10 @@ const BoardingPassScanScreen = () => {
     });
   };
 
+  const handleGoToDuties = () => {
+    navigation.navigate('MyDuties');
+  };
+
   const allDone = segments.length > 0 && segments.every((_, i) => doneIndices.has(i));
 
   return (
@@ -219,14 +226,17 @@ const BoardingPassScanScreen = () => {
                 <TouchableOpacity
                   key={i}
                   style={[styles.flightCard, isDone && styles.flightCardDone]}
-                  onPress={() => !isDone && handleCreateDuty(seg, i)}
-                  activeOpacity={isDone ? 1 : 0.72}>
+                  onPress={() => {
+                    if (isOfficer) { handleGoToDuties(); }
+                    else if (!isDone) { handleCreateDuty(seg, i); }
+                  }}
+                  activeOpacity={isDone && !isOfficer ? 1 : 0.72}>
 
                   <View style={styles.flightCardTop}>
                     <View style={[styles.typeBadge, isArrival ? styles.typeBadgeArr : styles.typeBadgeDep]}>
                       <Text style={styles.typeBadgeText}>{isArrival ? '✈ ARRIVAL' : '✈ DEPARTURE'}</Text>
                     </View>
-                    {isDone && (
+                    {isDone && !isOfficer && (
                       <View style={styles.doneBadge}>
                         <Text style={styles.doneBadgeText}>✓ Duty Created</Text>
                       </View>
@@ -244,16 +254,24 @@ const BoardingPassScanScreen = () => {
                     {seg.noOfPassengers > 1 ? `👥 ${seg.noOfPassengers} Passengers` : '👤 1 Passenger'}
                   </Text>
 
-                  {!isDone && (
-                    <View style={styles.tapRow}>
-                      <Text style={styles.tapText}>Tap to fill duty form →</Text>
-                    </View>
-                  )}
+                  <View style={styles.tapRow}>
+                    <Text style={styles.tapText}>
+                      {isOfficer ? 'Tap to find & claim this duty →' : isDone ? null : 'Tap to fill duty form →'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
 
-            {allDone && (
+            {isOfficer && segments.length > 0 && (
+              <AppButton
+                title="Go to Duties — Find & Claim"
+                onPress={handleGoToDuties}
+                style={styles.doneAllBtn}
+              />
+            )}
+
+            {!isOfficer && allDone && (
               <AppButton
                 title="All Duties Created — Go to Dashboard"
                 onPress={() => navigation.navigate('Dashboard')}

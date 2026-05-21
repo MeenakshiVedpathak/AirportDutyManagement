@@ -44,6 +44,20 @@ const SubordinateReportScreen = () => {
     load();
   }, [dateFrom, dateTo]);
 
+  const summaryLabel = (() => {
+    if (dateFrom && dateTo) {
+      const from = moment(dateFrom);
+      const to = moment(dateTo);
+      if (from.month() === to.month() && from.year() === to.year()) {
+        return from.format('MMMM, YYYY');
+      }
+      return `${from.format('MMM')} – ${to.format('MMM, YYYY')}`;
+    }
+    if (dateFrom) return moment(dateFrom).format('MMMM, YYYY');
+    if (dateTo) return moment(dateTo).format('MMMM, YYYY');
+    return moment().format('MMMM, YYYY');
+  })();
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
@@ -126,10 +140,16 @@ const SubordinateReportScreen = () => {
               <StatBox label="Cancelled" value={item.cancelled || 0} color={colors.error} />
             </View>
 
-            <View style={[styles.statsRow, styles.statsRowBottom]}>
-              <StatBox label="Before Office" value={item.beforeOffice || 0} color="#7C3AED" />
-              <StatBox label="After Office" value={item.afterOffice || 0} color="#7C3AED" />
-              <StatBox label="Incentive" value={`₹${item.totalIncentive || 0}`} color={colors.secondary} />
+            <View style={styles.summarySection}>
+              <View style={styles.summaryHeader}>
+                <Text style={styles.summaryTitle}>Duty Summary</Text>
+                <Text style={styles.summaryMonth}>{summaryLabel}</Text>
+              </View>
+              <View style={[styles.statsRow, {marginTop: 8}]}>
+                <StatBox label="Duty Done" value={item.completed || 0} color={colors.success} />
+                <StatBox label="Office Time" value={item.officeTimeDuty || 0} color={colors.primary} />
+                <StatBox label="Holiday / Before / After" value={item.holidayBeforeAfterDuty || 0} color="#7C3AED" />
+              </View>
             </View>
           </View>
         )}
@@ -170,10 +190,13 @@ const styles = StyleSheet.create({
   totalBadgeNum: {fontSize: 18, fontWeight: '700', color: colors.primary},
   totalBadgeLabel: {fontSize: 9, color: colors.textSecondary},
   statsRow: {flexDirection: 'row', gap: 8},
-  statsRowBottom: {marginTop: 8},
   statBox: {flex: 1, backgroundColor: colors.background, borderRadius: 8, padding: 10, alignItems: 'center'},
   statValue: {fontSize: 16, fontWeight: '700'},
   statLabel: {fontSize: 10, color: colors.textSecondary, marginTop: 2, textAlign: 'center'},
+  summarySection: {marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10},
+  summaryHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2},
+  summaryTitle: {fontSize: 12, fontWeight: '700', color: colors.text, textTransform: 'uppercase', letterSpacing: 0.4},
+  summaryMonth: {fontSize: 12, color: colors.textSecondary, fontWeight: '500'},
 });
 
 export default SubordinateReportScreen;

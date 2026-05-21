@@ -228,6 +228,30 @@ function extractTerminalNumber(text) {
   return m ? m[1] : null;
 }
 
+function toTitleCase(str) {
+  return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function extractTravellerName(text) {
+  // LASTNAME/FIRSTNAME MR (standard boarding pass)
+  const slashMatch = text.match(/\b([A-Z]+)\/([A-Z]+)\s+(?:MRS|MISS|DR|MR|MS)/);
+  if (slashMatch) return `${toTitleCase(slashMatch[2])} ${toTitleCase(slashMatch[1])}`;
+
+  // OCR misread: LASTNAME FIRSTNAME MR (slash read as space, both 4+ chars to avoid airport codes)
+  const spaceMatch = text.match(/\b([A-Z]{4,})[^\S\n]+([A-Z]{4,})[^\S\n]+(?:MRS|MISS|DR|MR|MS)/);
+  if (spaceMatch) return `${toTitleCase(spaceMatch[2])} ${toTitleCase(spaceMatch[1])}`;
+
+  // GDS / OTA e-ticket: MR FIRSTNAME LASTNAME followed immediately by ADT/CHD/INF
+  const gdsMatch = text.match(/\b(?:MRS?|MS|MISS|DR)\s+([A-Z][A-Z ]+?)(?=ADT|CHD|INF)/);
+  if (gdsMatch) return toTitleCase(gdsMatch[1].trim());
+
+  // Camera-scan / Air India: MR FIRSTNAME LASTNAME (no slash, no ADT suffix)
+  const plainMatch = text.match(/\b(?:MRS?|MS|MISS|DR)[^\S\n]+([A-Z]+[^\S\n]+(?:[A-Z]{2,}[^\S\n]+){0,2}[A-Z]{3,})/);
+  if (plainMatch) return toTitleCase(plainMatch[1].trim());
+
+  return null;
+}
+
 function extractPassengerCount(text) {
   // Signal 1 — IndiGo/SpiceJet web boarding passes:
   // Each passenger stub: LASTNAME/FIRSTNAME followed by a salutation.
@@ -349,6 +373,7 @@ function parseSegment(text) {
     arrivalDeparture: extractArrivalDeparture(text),
     terminal: extractTerminalNumber(text),
     noOfPassengers: extractPassengerCount(text),
+    travellerName: extractTravellerName(text),
   };
 }
 
@@ -406,6 +431,7 @@ export function parseAllFlights(rawOcrText) {
       arrivalDeparture: extractArrivalDeparture(text),
       terminal:         extractTerminalNumber(citiesChunk) ?? extractTerminalNumber(timesChunk),
       noOfPassengers:   extractPassengerCount(text),
+      travellerName:    extractTravellerName(text),
     }];
   }
 
@@ -471,6 +497,7 @@ export function parseAllFlights(rawOcrText) {
       arrivalDeparture: extractArrivalDeparture(citiesChunk + timesChunk),
       terminal,
       noOfPassengers:   extractPassengerCount(text),
+      travellerName:    extractTravellerName(text),
     };
   });
 }

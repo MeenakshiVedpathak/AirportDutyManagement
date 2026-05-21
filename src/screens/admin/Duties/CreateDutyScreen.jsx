@@ -138,20 +138,18 @@ const CreateDutyScreen = () => {
     if (prefill.arrivalDeparture) setValue('arrivalDeparture', prefill.arrivalDeparture);
   }, [prefill]);
 
-  const MYSELF_VALUE = adminUser?.id || adminUser?._id || 'myself';
   const officerItems = [
-    {label: `${adminUser?.name} (Myself — Admin)`, value: MYSELF_VALUE},
+    {label: '— Assign later', value: null},
     ...officers.filter(o => o.isEnabled).map(o => ({label: o.name, value: o.id?.toString()})),
   ];
 
   useEffect(() => {
-    if (!selectedOfficerId) return;
-    if (selectedOfficerId === MYSELF_VALUE) {
-      setValue('officerName', adminUser?.name || '');
-    } else {
-      const found = officers.find(o => o.id?.toString() === selectedOfficerId);
-      if (found) setValue('officerName', found.name);
+    if (!selectedOfficerId) {
+      setValue('officerName', '');
+      return;
     }
+    const found = officers.find(o => o.id?.toString() === selectedOfficerId);
+    if (found) setValue('officerName', found.name);
   }, [selectedOfficerId]);
 
   const onFormError = errs => {

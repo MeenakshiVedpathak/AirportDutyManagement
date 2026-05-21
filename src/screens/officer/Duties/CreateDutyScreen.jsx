@@ -86,6 +86,7 @@ const OfficerCreateDutyScreen = () => {
       arrivalDeparture: activePrefill?.arrivalDeparture || 'DEPARTURE',
       airportId: '', airportName: '', terminalId: '', terminalName: '',
       noOfPassengers: activePrefill?.noOfPassengers ? String(activePrefill.noOfPassengers) : '1',
+      travellerName: activePrefill?.travellerName || '',
     },
   });
 
@@ -118,12 +119,8 @@ const OfficerCreateDutyScreen = () => {
     if (activePrefill.flightNo) setValue('flightNo', activePrefill.flightNo);
     if (activePrefill.arrivalDeparture) setValue('arrivalDeparture', activePrefill.arrivalDeparture);
     if (activePrefill.noOfPassengers) setValue('noOfPassengers', String(activePrefill.noOfPassengers));
+    if (activePrefill.travellerName) setValue('travellerName', activePrefill.travellerName);
   }, [activePrefill]);
-
-  // DEBUG — remove after confirming fix
-  useEffect(() => {
-    Alert.alert('DEBUG pax', `route.params.prefill.noOfPassengers = ${route.params?.prefill?.noOfPassengers}\nactivePrefill.noOfPassengers = ${activePrefill?.noOfPassengers}`);
-  }, []);
 
   // Force-set noOfPassengers before first paint using reset() — more reliable than
   // setValue() because reset() flushes the entire form state atomically.
@@ -244,6 +241,10 @@ const OfficerCreateDutyScreen = () => {
       <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
 
         <AppInput label="Subordinate Name" value={user?.name || ''} editable={false} style={styles.readOnly} />
+
+        <Controller control={control} name="travellerName" render={({field: {onChange, value}}) => (
+          <AppInput label="Traveller Name" value={value} onChangeText={onChange} placeholder="e.g. Rahul Sharma" error={errors.travellerName?.message} />
+        )} />
 
         <Text style={styles.lbl}>Date & Day</Text>
         <View style={styles.row}>

@@ -6,18 +6,28 @@ import {colors} from '../theme/colors';
 import OfficerDashboardScreen from '../screens/officer/Dashboard/OfficerDashboardScreen';
 import MyDutiesScreen from '../screens/officer/Duties/MyDutiesScreen';
 import DutyDetailScreen from '../screens/officer/Duties/DutyDetailScreen';
+import ScanToCompleteScreen from '../screens/officer/Duties/ScanToCompleteScreen';
+import BoardingPassScanScreen from '../screens/officer/Duties/BoardingPassScanScreen';
 import ProfileScreen from '../screens/officer/Profile/ProfileScreen';
 import ChangePasswordScreen from '../screens/shared/ChangePasswordScreen';
 
 const Tab = createBottomTabNavigator();
 const DutyStack = createNativeStackNavigator();
+const ScanStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 
 const DutiesNavigator = () => (
   <DutyStack.Navigator screenOptions={{headerShown: false}}>
     <DutyStack.Screen name="MyDutiesList" component={MyDutiesScreen} />
     <DutyStack.Screen name="DutyDetail" component={DutyDetailScreen} />
+    <DutyStack.Screen name="ScanToComplete" component={ScanToCompleteScreen} />
   </DutyStack.Navigator>
+);
+
+const ScanNavigator = () => (
+  <ScanStack.Navigator screenOptions={{headerShown: false}}>
+    <ScanStack.Screen name="ScanScreen" component={BoardingPassScanScreen} />
+  </ScanStack.Navigator>
 );
 
 const ProfileNavigator = () => (
@@ -38,7 +48,9 @@ const OfficerTabs = () => (
     <Tab.Screen name="Dashboard" component={OfficerDashboardScreen}
       options={{tabBarIcon: () => <Text style={{fontSize: 20}}>🏠</Text>}} />
     <Tab.Screen name="MyDuties" component={DutiesNavigator}
-      options={{tabBarLabel: 'My Duties', tabBarIcon: () => <Text style={{fontSize: 20}}>📋</Text>}} />
+      options={{tabBarLabel: 'Duties', tabBarIcon: () => <Text style={{fontSize: 20}}>📋</Text>}} />
+    <Tab.Screen name="ScanPass" component={ScanNavigator}
+      options={{tabBarLabel: 'Scan Pass', tabBarIcon: () => <Text style={{fontSize: 20}}>📷</Text>}} />
     <Tab.Screen name="Profile" component={ProfileNavigator}
       options={{tabBarIcon: () => <Text style={{fontSize: 20}}>👤</Text>}} />
   </Tab.Navigator>

@@ -10,7 +10,6 @@ import LoadingOverlay from '../../../components/common/LoadingOverlay';
 import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
 import {formatDate, formatTime} from '../../../utils/dateUtils';
-import {isIncentiveEligible} from '../../../utils/incentiveUtils';
 
 const Row = ({label, value}) => (
   <View style={styles.row}>
@@ -131,9 +130,7 @@ const OfficerDutyDetailScreen = () => {
             </View>
           )}
 
-          {isIncentiveEligible(duty.officeType) && (
-            <View style={styles.incentiveBadge}><Text style={styles.incentiveText}>₹500 Incentive Eligible</Text></View>
-          )}
+
         </View>
 
         <View style={styles.section}>
@@ -156,6 +153,14 @@ const OfficerDutyDetailScreen = () => {
           <Row label="To" value={duty.to} />
           <Row label="Passengers" value={duty.noOfPassengers?.toString()} />
         </View>
+
+        {(duty.travellerName || duty.travellerPhone) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Traveller Details</Text>
+            {duty.travellerName ? <Row label="Name of Traveller" value={duty.travellerName} /> : null}
+            {duty.travellerPhone ? <Row label="Mobile No." value={duty.travellerPhone} /> : null}
+          </View>
+        )}
 
         {/* Action area */}
         {isAvailable && (
@@ -190,11 +195,17 @@ const OfficerDutyDetailScreen = () => {
               <Text style={styles.confirmedText}>You have confirmed this duty</Text>
             </View>
             <TouchableOpacity
+              style={[styles.scanCompleteBtn, acting && styles.btnDisabled]}
+              onPress={() => navigation.navigate('ScanToComplete', {dutyId, flightNo: duty.flightNo, travellerName: duty.travellerName || ''})}
+              disabled={acting} activeOpacity={0.8}>
+              <Text style={styles.scanCompleteBtnText}>📷  Scan Boarding Pass & Complete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.completeBtn, acting && styles.btnDisabled]}
               onPress={handleComplete} disabled={acting} activeOpacity={0.8}>
               {acting
                 ? <ActivityIndicator color={colors.white} />
-                : <Text style={styles.completeBtnText}>✅  Mark as Completed</Text>}
+                : <Text style={styles.completeBtnText}>✅  Complete Without Scan</Text>}
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.cancelDutyBtn, acting && styles.btnDisabled]}
@@ -244,8 +255,7 @@ const styles = StyleSheet.create({
   mineText: {fontSize: 12, fontWeight: '700', color: '#16A34A'},
   otherBadge: {backgroundColor: '#FEE2E2'},
   otherText: {fontSize: 12, fontWeight: '700', color: '#DC2626'},
-  incentiveBadge: {backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginTop: 10},
-  incentiveText: {fontSize: 12, fontWeight: '600', color: '#92400E'},
+
   section: {backgroundColor: colors.white, borderRadius: 12, padding: 16, marginBottom: 12, ...shadows.sm},
   sectionTitle: {fontSize: 14, fontWeight: '700', color: colors.primary, marginBottom: 12},
   row: {flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.divider},
@@ -268,8 +278,10 @@ const styles = StyleSheet.create({
   confirmedIcon: {fontSize: 20, color: '#16A34A', fontWeight: '800'},
   confirmedText: {fontSize: 15, fontWeight: '700', color: '#16A34A'},
 
-  completeBtn: {backgroundColor: '#16A34A', borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginBottom: 10, ...shadows.sm},
-  completeBtnText: {color: colors.white, fontSize: 16, fontWeight: '700'},
+  scanCompleteBtn: {backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginBottom: 10, ...shadows.sm},
+  scanCompleteBtnText: {color: colors.white, fontSize: 16, fontWeight: '700'},
+  completeBtn: {backgroundColor: '#16A34A', borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginBottom: 10, ...shadows.sm},
+  completeBtnText: {color: colors.white, fontSize: 14, fontWeight: '600'},
   cancelDutyBtn: {borderWidth: 1.5, borderColor: '#DC2626', borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginBottom: 10},
   cancelDutyBtnText: {color: '#DC2626', fontSize: 14, fontWeight: '700'},
 
