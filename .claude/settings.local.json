@@ -90,7 +90,8 @@
       "Bash(grep '_OBJC_CLASS_$_RNS')",
       "Bash(grep -v \".dSYM\\\\|.d$\\\\|\\\\.dia$\")",
       "Bash(xcodebuild -workspace /Users/gttdata/Documents/admnew/AirportDutyManagement/ios/AirportDutyManagement.xcworkspace -scheme AirportDutyManagement -configuration Debug -sdk iphonesimulator -destination 'id=878E872C-ED25-42FE-B757-1C4C8546DAF9' build)",
-      "Bash(qlmanage -t -s 256 -o /tmp /Users/gttdata/Documents/admnew/AirportDutyManagement/ios/AirportDutyManagement/Images.xcassets/AppIcon.appiconset/icon-1024.png)"
+      "Bash(qlmanage -t -s 256 -o /tmp /Users/gttdata/Documents/admnew/AirportDutyManagement/ios/AirportDutyManagement/Images.xcassets/AppIcon.appiconset/icon-1024.png)",
+      "Bash(echo \"Build started in background with PID $!\")"
     ]
   }
 }
