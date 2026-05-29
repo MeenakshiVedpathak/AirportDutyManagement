@@ -12,6 +12,7 @@ import {fetchOfficersStart, fetchOfficersSuccess, fetchOfficersFailure} from '..
 import {fetchAirportsStart, fetchAirportsSuccess, setTerminals} from '../../../store/slices/airportSlice';
 import {getOfficers} from '../../../api/officerApi';
 import {getAirports, getTerminals} from '../../../api/airportApi';
+import {pick as pickDocument, types as documentTypes, isErrorWithCode, errorCodes} from '@react-native-documents/picker';
 import AppInput from '../../../components/common/AppInput';
 import AppButton from '../../../components/common/AppButton';
 import AutocompleteInput from '../../../components/common/AutocompleteInput';
@@ -81,6 +82,27 @@ const CreateDutyScreen = () => {
   const [reportingTime, setReportingTime] = useState(new Date());
   const [guestArrivalTime, setGuestArrivalTime] = useState(new Date());
   const [hasGuestArrivalTime, setHasGuestArrivalTime] = useState(false);
+
+  const [pdfData, setPdfData] = useState(null);
+
+  const handlePickPdf = async () => {
+    try {
+      const results = await pickDocument({type: [documentTypes.pdf]});
+      if (!results?.length) return;
+      const file = results[0];
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result.split(',')[1];
+        setPdfData({filename: file.name || 'document.pdf', data: base64, mimeType: file.type || 'application/pdf', size: file.size || 0});
+      };
+      reader.readAsDataURL(blob);
+    } catch (e) {
+      if (isErrorWithCode(e) && e.code === errorCodes.OPERATION_CANCELED) return;
+      Alert.alert('Error', 'Failed to pick file');
+    }
+  };
 
   const [officerOpen, setOfficerOpen] = useState(false);
   const [officeTypeOpen, setOfficeTypeOpen] = useState(false);
@@ -180,6 +202,7 @@ const CreateDutyScreen = () => {
       const payload = {...data};
       if (!payload.officerId) { delete payload.officerId; delete payload.officerName; }
       if (!hasGuestArrivalTime) { delete payload.guestArrivalTime; }
+      if (pdfData) payload.pdfAttachment = {...pdfData, uploadedAt: new Date().toISOString()};
       const result = await addDuty(payload);
       if (!result) {
         Alert.alert('Save Failed', 'Could not save the duty. Check your connection and try again.');
@@ -404,6 +427,24 @@ const CreateDutyScreen = () => {
             keyboardType="numeric" placeholder="1" error={errors.noOfPassengers?.message} />
         )} />
 
+        {/* ── PDF Attachment ── */}
+        <View style={styles.optionalRow}>
+          <Text style={styles.sectionLabel}>PDF Attachment</Text>
+          <Text style={styles.optionalTag}>Optional</Text>
+        </View>
+        {pdfData ? (
+          <View style={styles.pdfAttached}>
+            <Text style={styles.pdfName} numberOfLines={1}>📎 {pdfData.filename}</Text>
+            <TouchableOpacity onPress={() => setPdfData(null)} style={styles.pdfRemoveBtn}>
+              <Text style={styles.pdfRemoveText}>✕ Remove</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.addOptBtn} onPress={handlePickPdf}>
+            <Text style={styles.addOptBtnText}>📎 Attach PDF</Text>
+          </TouchableOpacity>
+        )}
+
         <AppButton title="Create Duty" onPress={handleSubmit(onSubmit, onFormError)} loading={isSubmitting} style={styles.btn} />
       </ScrollView>
     </SafeAreaView>
@@ -437,6 +478,10 @@ const styles = StyleSheet.create({
   dropdownList: {borderColor: colors.border},
   err: {fontSize: 11, color: colors.error, marginBottom: 8},
   btn: {marginTop: 16},
+  pdfAttached: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.5, borderColor: '#93C5FD', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: '#EFF6FF', marginBottom: 8},
+  pdfName: {fontSize: 13, color: '#1D4ED8', flex: 1, marginRight: 8},
+  pdfRemoveBtn: {paddingHorizontal: 8, paddingVertical: 4, backgroundColor: colors.error + '15', borderRadius: 6},
+  pdfRemoveText: {fontSize: 12, color: colors.error, fontWeight: '600'},
 });
 
 export default CreateDutyScreen;

@@ -48,8 +48,15 @@ const DutyCard = ({duty, onPress}) => {
           </Text>
         </View>
       ) : null}
-      <View style={[styles.claimBadge, {backgroundColor: badge.bg}]}>
-        <Text style={[styles.claimText, {color: badge.text}]}>{badge.label}</Text>
+      <View style={styles.bottomRow}>
+        <View style={[styles.claimBadge, {backgroundColor: badge.bg}]}>
+          <Text style={[styles.claimText, {color: badge.text}]}>{badge.label}</Text>
+        </View>
+        {duty.pdfAttachment?.hasFile && (
+          <View style={styles.pdfTag}>
+            <Text style={styles.pdfTagText}>📎 PDF</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -76,8 +83,11 @@ const styles = StyleSheet.create({
   travellerRow: {flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6},
   travellerLabel: {fontSize: 11, color: colors.textSecondary},
   travellerName: {fontSize: 12, fontWeight: '600', color: colors.text, flex: 1, flexWrap: 'wrap'},
-  claimBadge: {borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', marginTop: 4},
+  bottomRow: {flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap'},
+  claimBadge: {borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4},
   claimText: {fontSize: 11, fontWeight: '600'},
+  pdfTag: {borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD'},
+  pdfTagText: {fontSize: 11, fontWeight: '600', color: '#1D4ED8'},
 });
 
 export default DutyCard;

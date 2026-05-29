@@ -212,7 +212,7 @@ exports.updateDuty = async (req, res, next) => {
       'date', 'reportingTime', 'guestArrivalTime', 'officeType',
       'from', 'to', 'airline', 'flightNo', 'pnrNo', 'flightTime', 'airportId', 'airportName',
       'terminalId', 'terminalName', 'arrivalDeparture', 'noOfPassengers',
-      'travellerName', 'travellerDesignation', 'travellerPhone',
+      'travellerName', 'travellerDesignation', 'travellerPhone', 'pdfAttachment',
     ];
     const duty = await Duty.findById(req.params.id);
     if (!duty) return res.status(404).json({ message: 'Duty not found' });

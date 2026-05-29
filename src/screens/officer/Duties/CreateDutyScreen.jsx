@@ -10,6 +10,7 @@ import {dutySchema} from '../../../utils/validationSchemas';
 import {useDuties} from '../../../hooks/useDuties';
 import {fetchAirportsStart, fetchAirportsSuccess, setTerminals} from '../../../store/slices/airportSlice';
 import {getAirports, getTerminals} from '../../../api/airportApi';
+import {pick as pickDocument, types as documentTypes, isErrorWithCode, errorCodes} from '@react-native-documents/picker';
 import AppInput from '../../../components/common/AppInput';
 import AppButton from '../../../components/common/AppButton';
 import AutocompleteInput from '../../../components/common/AutocompleteInput';
@@ -57,6 +58,27 @@ const OfficerCreateDutyScreen = () => {
   const [flightTime, setFlightTime] = useState(
     activePrefill?.flightTime ? moment(activePrefill.flightTime, 'HH:mm').toDate() : new Date(),
   );
+
+  const [pdfData, setPdfData] = useState(null);
+
+  const handlePickPdf = async () => {
+    try {
+      const results = await pickDocument({type: [documentTypes.pdf]});
+      if (!results?.length) return;
+      const file = results[0];
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result.split(',')[1];
+        setPdfData({filename: file.name || 'document.pdf', data: base64, mimeType: file.type || 'application/pdf', size: file.size || 0});
+      };
+      reader.readAsDataURL(blob);
+    } catch (e) {
+      if (isErrorWithCode(e) && e.code === errorCodes.OPERATION_CANCELED) return;
+      Alert.alert('Error', 'Failed to pick file');
+    }
+  };
 
   const [officeTypeOpen, setOfficeTypeOpen] = useState(false);
   const [fromOpen, setFromOpen] = useState(false);
@@ -219,7 +241,9 @@ const OfficerCreateDutyScreen = () => {
 
   const onSubmit = async data => {
     try {
-      const result = await addDuty(data);
+      const payload = {...data};
+      if (pdfData) payload.pdfAttachment = {...pdfData, uploadedAt: new Date().toISOString()};
+      const result = await addDuty(payload);
       if (!result) {
         Alert.alert('Save Failed', 'Could not save the duty. Check your connection and try again.');
         return;
@@ -377,6 +401,24 @@ const OfficerCreateDutyScreen = () => {
         )} />
         {errors.terminalId && <Text style={styles.err}>{errors.terminalId.message}</Text>}
 
+        {/* ── PDF Attachment ── */}
+        <View style={styles.optionalRow}>
+          <Text style={styles.sectionLabel}>PDF Attachment</Text>
+          <Text style={styles.optionalTag}>Optional</Text>
+        </View>
+        {pdfData ? (
+          <View style={styles.pdfAttached}>
+            <Text style={styles.pdfName} numberOfLines={1}>📎 {pdfData.filename}</Text>
+            <TouchableOpacity onPress={() => setPdfData(null)} style={styles.pdfRemoveBtn}>
+              <Text style={styles.pdfRemoveText}>✕ Remove</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.addOptBtn} onPress={handlePickPdf}>
+            <Text style={styles.addOptBtnText}>📎 Attach PDF</Text>
+          </TouchableOpacity>
+        )}
+
         <AppButton title="Submit Duty" onPress={handleSubmit(onSubmit, onFormError)} loading={isSubmitting} style={styles.btn} />
       </ScrollView>
 
@@ -412,6 +454,10 @@ const styles = StyleSheet.create({
   dropdownDisabled: {backgroundColor: colors.background, opacity: 0.6},
   dropdownList: {borderColor: colors.border},
   err: {fontSize: 11, color: colors.error, marginBottom: 8},
+  pdfAttached: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.5, borderColor: '#93C5FD', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: '#EFF6FF', marginBottom: 8},
+  pdfName: {fontSize: 13, color: '#1D4ED8', flex: 1, marginRight: 8},
+  pdfRemoveBtn: {paddingHorizontal: 8, paddingVertical: 4, backgroundColor: colors.error + '15', borderRadius: 6},
+  pdfRemoveText: {fontSize: 12, color: colors.error, fontWeight: '600'},
   readOnly: {backgroundColor: '#F3F4F6'},
   btn: {marginTop: 16},
 });
