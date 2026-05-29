@@ -1,15 +1,18 @@
 import React, {useEffect, useState} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert} from 'react-native';
+import Share from 'react-native-share';
+import {pick as pickDocument, types as documentTypes, isErrorWithCode, errorCodes} from '@react-native-documents/picker';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useSelector} from 'react-redux';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useDuties} from '../../../hooks/useDuties';
+import {uploadDutyPdf, getDutyPdf} from '../../../api/dutyApi';
 import StatusBadge from '../../../components/common/StatusBadge';
 import {STATUS_DESCRIPTIONS, DUTY_STATUS} from '../../../constants/dutyStatus';
 import LoadingOverlay from '../../../components/common/LoadingOverlay';
 import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
-import {formatDate, formatTime} from '../../../utils/dateUtils';
+import {formatDate, formatTime, getDayFromDate} from '../../../utils/dateUtils';
 
 const Row = ({label, value}) => (
   <View style={styles.row}>
@@ -24,6 +27,7 @@ const OfficerDutyDetailScreen = () => {
   const {user} = useSelector(state => state.auth);
   const {selectedDuty: duty, fetchDuty, confirmDuty, claimDuty, releaseDuty, changeStatus, isLoading} = useDuties();
   const [acting, setActing] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {fetchDuty(dutyId);}, [dutyId]);
 
@@ -94,6 +98,47 @@ const OfficerDutyDetailScreen = () => {
     ]);
   };
 
+  const handleUploadPdf = async () => {
+    try {
+      const results = await pickDocument({ type: [documentTypes.pdf, documentTypes.allFiles], allowMultiSelection: false });
+      const result = results[0];
+      if (!result) return;
+      setPdfLoading(true);
+      const response = await fetch(result.uri);
+      const blob = await response.blob();
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      await uploadDutyPdf(dutyId, { filename: result.name, data: base64, mimeType: result.type || 'application/pdf', size: result.size || 0 });
+      await fetchDuty(dutyId);
+    } catch (e) {
+      if (!isErrorWithCode(e) || e.code !== errorCodes.OPERATION_CANCELED) {
+        Alert.alert('Upload Failed', e?.message || 'Could not upload the file.');
+      }
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const handleViewPdf = async () => {
+    try {
+      setPdfLoading(true);
+      const res = await getDutyPdf(dutyId);
+      const { data, filename, mimeType } = res.data;
+      await Share.open({ url: `data:${mimeType || 'application/pdf'};base64,${data}`, type: mimeType || 'application/pdf', filename: filename || 'document.pdf' });
+    } catch (e) {
+      const msg = e?.message || '';
+      if (!e?.dismissedAction && msg !== 'User did not share' && !msg.toLowerCase().includes('cancel')) {
+        Alert.alert('Error', msg || 'Could not open the file.');
+      }
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
@@ -136,7 +181,7 @@ const OfficerDutyDetailScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Duty Information</Text>
           <Row label="Date" value={formatDate(duty.date)} />
-          <Row label="Day" value={duty.day} />
+          <Row label="Day" value={duty.date ? getDayFromDate(duty.date) : '—'} />
           <Row label="Arrival / Departure" value={duty.arrivalDeparture} />
           <Row label="Holiday / Office Time" value={duty.officeType?.replace(/_/g, ' ')} />
           <Row label="Reporting Time" value={formatTime(duty.reportingTime)} />
@@ -147,20 +192,49 @@ const OfficerDutyDetailScreen = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Flight Information</Text>
-          <Row label="Flight No" value={duty.flightNo} />
+          <Row label="Flight No" value={duty.airline ? `${duty.airline} ${duty.flightNo}`.trim() : duty.flightNo} />
+          {duty.pnrNo ? <Row label="PNR No" value={duty.pnrNo} /> : null}
           <Row label="Flight Time" value={formatTime(duty.flightTime)} />
           <Row label="From" value={duty.from} />
           <Row label="To" value={duty.to} />
           <Row label="Passengers" value={duty.noOfPassengers?.toString()} />
         </View>
 
-        {(duty.travellerName || duty.travellerPhone) && (
+        {(duty.travellerName || duty.travellerPhone || duty.travellerDesignation) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Traveller Details</Text>
             {duty.travellerName ? <Row label="Name of Traveller" value={duty.travellerName} /> : null}
+            {duty.travellerDesignation ? <Row label="Designation" value={duty.travellerDesignation} /> : null}
             {duty.travellerPhone ? <Row label="Mobile No." value={duty.travellerPhone} /> : null}
           </View>
         )}
+
+        {/* PDF Attachment */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Attachment</Text>
+          {duty.pdfAttachment?.hasFile ? (
+            <>
+              <View style={styles.pdfRow}>
+                <Text style={styles.pdfName}>📄 {duty.pdfAttachment.filename || 'document.pdf'}</Text>
+                {duty.pdfAttachment.size ? <Text style={styles.pdfSize}>{(duty.pdfAttachment.size / 1024).toFixed(1)} KB</Text> : null}
+              </View>
+              <TouchableOpacity style={styles.viewPdfBtn} onPress={handleViewPdf} disabled={pdfLoading}>
+                {pdfLoading
+                  ? <ActivityIndicator color={colors.primary} size="small" />
+                  : <Text style={styles.viewPdfBtnText}>👁  View / Share</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.replacePdfBtn} onPress={handleUploadPdf} disabled={pdfLoading}>
+                <Text style={styles.replacePdfBtnText}>↺  Replace</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity style={styles.uploadPdfBtn} onPress={handleUploadPdf} disabled={pdfLoading}>
+              {pdfLoading
+                ? <ActivityIndicator color={colors.primary} size="small" />
+                : <Text style={styles.uploadPdfBtnText}>📎  Attach PDF / File</Text>}
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Action area */}
         {isAvailable && (
@@ -285,6 +359,15 @@ const styles = StyleSheet.create({
   cancelDutyBtn: {borderWidth: 1.5, borderColor: '#DC2626', borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginBottom: 10},
   cancelDutyBtnText: {color: '#DC2626', fontSize: 14, fontWeight: '700'},
 
+  pdfRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10},
+  pdfName: {fontSize: 13, color: colors.text, fontWeight: '500', flex: 1},
+  pdfSize: {fontSize: 11, color: colors.textSecondary, marginLeft: 8},
+  viewPdfBtn: {backgroundColor: colors.primary + '15', borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: colors.primary + '40'},
+  viewPdfBtnText: {fontSize: 13, color: colors.primary, fontWeight: '600'},
+  replacePdfBtn: {borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 8, alignItems: 'center'},
+  replacePdfBtnText: {fontSize: 12, color: colors.textSecondary, fontWeight: '500'},
+  uploadPdfBtn: {borderWidth: 1.5, borderColor: colors.primary + '60', borderRadius: 8, paddingVertical: 12, alignItems: 'center', backgroundColor: colors.primary + '08'},
+  uploadPdfBtnText: {fontSize: 13, color: colors.primary, fontWeight: '600'},
   doneBanner: {
     backgroundColor: '#F0FDF4', borderRadius: 12, borderWidth: 1.5, borderColor: '#86EFAC',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

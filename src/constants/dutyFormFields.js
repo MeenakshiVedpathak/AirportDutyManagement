@@ -1,7 +1,7 @@
 export const AIRPORTS = ['T-1', 'T-2', 'ULVE'];
 
 export const OFFICE_TYPES = [
-  {label: 'Regular Office (09:00)', value: 'REGULAR'},
+  {label: 'Regular Office (09:00–18:00)', value: 'REGULAR'},
   {label: 'Before Office', value: 'BEFORE_OFFICE'},
   {label: 'After Office', value: 'AFTER_OFFICE'},
   {label: 'Holiday', value: 'HOLIDAY'},

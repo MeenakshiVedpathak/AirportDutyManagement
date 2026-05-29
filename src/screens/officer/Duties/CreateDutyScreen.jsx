@@ -12,10 +12,12 @@ import {fetchAirportsStart, fetchAirportsSuccess, setTerminals} from '../../../s
 import {getAirports, getTerminals} from '../../../api/airportApi';
 import AppInput from '../../../components/common/AppInput';
 import AppButton from '../../../components/common/AppButton';
+import AutocompleteInput from '../../../components/common/AutocompleteInput';
 import WhatsAppMessageModal from '../../../components/common/WhatsAppMessageModal';
 import {colors} from '../../../theme/colors';
-import {OFFICE_TYPES, ARRIVAL_DEPARTURE, CITIES} from '../../../constants/dutyFormFields';
+import {OFFICE_TYPES, ARRIVAL_DEPARTURE} from '../../../constants/dutyFormFields';
 import {getDayFromDate, toAPIDate, toAPITime} from '../../../utils/dateUtils';
+import {useCities} from '../../../hooks/useCities';
 import {setCreatedScanIndex} from '../../../utils/pendingDutyStore';
 import moment from 'moment';
 
@@ -26,6 +28,17 @@ const OfficerCreateDutyScreen = () => {
   const {addDuty} = useDuties();
   const {user} = useSelector(state => state.auth);
   const {list: airports, terminals} = useSelector(state => state.airports);
+  const duties = useSelector(state => state.duties.list);
+  const cities = useCities();
+
+  const pastNames = [...new Set(duties.map(d => d.travellerName).filter(Boolean))];
+  const pastDesignations = [...new Set(duties.map(d => d.travellerDesignation).filter(Boolean))];
+  const nameToDesignation = duties.reduce((acc, d) => {
+    if (d.travellerName && d.travellerDesignation && !acc[d.travellerName]) {
+      acc[d.travellerName] = d.travellerDesignation;
+    }
+    return acc;
+  }, {});
   const scrollRef = useRef(null);
 
   const [activePrefill, setActivePrefill] = useState(route.params?.prefill || null);
@@ -81,12 +94,15 @@ const OfficerCreateDutyScreen = () => {
       officeType: '',
       from: activePrefill?.from || '',
       to: activePrefill?.to || '',
+      airline: '',
       flightNo: activePrefill?.flightNo || '',
+      pnrNo: '',
       flightTime: activePrefill?.flightTime || toAPITime(new Date()),
       arrivalDeparture: activePrefill?.arrivalDeparture || 'DEPARTURE',
       airportId: '', airportName: '', terminalId: '', terminalName: '',
       noOfPassengers: activePrefill?.noOfPassengers ? String(activePrefill.noOfPassengers) : '1',
       travellerName: activePrefill?.travellerName || '',
+      travellerDesignation: '',
     },
   });
 
@@ -243,7 +259,30 @@ const OfficerCreateDutyScreen = () => {
         <AppInput label="Subordinate Name" value={user?.name || ''} editable={false} style={styles.readOnly} />
 
         <Controller control={control} name="travellerName" render={({field: {onChange, value}}) => (
-          <AppInput label="Traveller Name" value={value} onChangeText={onChange} placeholder="e.g. Rahul Sharma" error={errors.travellerName?.message} />
+          <AutocompleteInput
+            label="Traveller Name"
+            value={value}
+            onChangeText={onChange}
+            onSelect={name => {
+              onChange(name);
+              if (nameToDesignation[name]) setValue('travellerDesignation', nameToDesignation[name]);
+            }}
+            suggestions={pastNames}
+            placeholder="e.g. Rahul Sharma"
+            error={errors.travellerName?.message}
+          />
+        )} />
+
+        <Controller control={control} name="travellerDesignation" render={({field: {onChange, value}}) => (
+          <AutocompleteInput
+            label="Designation"
+            value={value}
+            onChangeText={onChange}
+            onSelect={onChange}
+            suggestions={pastDesignations}
+            placeholder="e.g. Director, Manager"
+            error={errors.travellerDesignation?.message}
+          />
         )} />
 
         <Text style={styles.lbl}>Date & Day</Text>
@@ -259,7 +298,7 @@ const OfficerCreateDutyScreen = () => {
         <TouchableOpacity style={styles.dateBtn} onPress={() => setShowReportingTimePicker(true)}>
           <Text style={styles.dateBtnText}>{moment(reportingTime).format('HH:mm')}</Text>
         </TouchableOpacity>
-        {showReportingTimePicker && <DateTimePicker value={reportingTime} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_, t) => {setShowReportingTimePicker(false); if (t) {setReportingTime(t); setValue('reportingTime', toAPITime(t));}}} />}
+        {showReportingTimePicker && <DateTimePicker value={reportingTime} mode="time" is24Hour display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_, t) => {setShowReportingTimePicker(false); if (t) {setReportingTime(t); setValue('reportingTime', toAPITime(t));}}} />}
 
         <Text style={styles.lbl}>Office / Holiday Type</Text>
         <Controller control={control} name="officeType" render={({field: {onChange, value}}) => (
@@ -269,25 +308,31 @@ const OfficerCreateDutyScreen = () => {
 
         <Text style={styles.lbl}>From</Text>
         <Controller control={control} name="from" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={fromOpen} setOpen={setFromOpen} value={value} setValue={cb => onChange(cb(value))} items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select From City" style={styles.dropdown} searchable dropDownContainerStyle={styles.dropdownList} zIndex={4000} listMode="SCROLLVIEW" />
+          <DropDownPicker open={fromOpen} setOpen={setFromOpen} value={value} setValue={cb => onChange(cb(value))} items={cities.map(c => ({label: c, value: c}))} placeholder="Select From City" style={styles.dropdown} searchable dropDownContainerStyle={styles.dropdownList} zIndex={4000} listMode="SCROLLVIEW" />
         )} />
         {errors.from && <Text style={styles.err}>{errors.from.message}</Text>}
 
         <Text style={styles.lbl}>To</Text>
         <Controller control={control} name="to" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={toOpen} setOpen={setToOpen} value={value} setValue={cb => onChange(cb(value))} items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select To City" style={styles.dropdown} searchable dropDownContainerStyle={styles.dropdownList} zIndex={3000} listMode="SCROLLVIEW" />
+          <DropDownPicker open={toOpen} setOpen={setToOpen} value={value} setValue={cb => onChange(cb(value))} items={cities.map(c => ({label: c, value: c}))} placeholder="Select To City" style={styles.dropdown} searchable dropDownContainerStyle={styles.dropdownList} zIndex={3000} listMode="SCROLLVIEW" />
         )} />
         {errors.to && <Text style={styles.err}>{errors.to.message}</Text>}
 
+        <Controller control={control} name="airline" render={({field: {onChange, value}}) => (
+          <AppInput label="Airline Code" value={value} onChangeText={onChange} placeholder="e.g. 6E, AI, UK" autoCapitalize="characters" error={errors.airline?.message} />
+        )} />
         <Controller control={control} name="flightNo" render={({field: {onChange, value}}) => (
-          <AppInput label="Flight No" value={value} onChangeText={onChange} placeholder="e.g. 6E 201" autoCapitalize="characters" error={errors.flightNo?.message} />
+          <AppInput label="Flight No" value={value} onChangeText={onChange} placeholder="e.g. 6802" autoCapitalize="characters" error={errors.flightNo?.message} />
+        )} />
+        <Controller control={control} name="pnrNo" render={({field: {onChange, value}}) => (
+          <AppInput label="PNR No" value={value} onChangeText={onChange} placeholder="e.g. ABC123" autoCapitalize="characters" error={errors.pnrNo?.message} />
         )} />
 
         <Text style={styles.lbl}>Flight Time</Text>
         <TouchableOpacity style={styles.dateBtn} onPress={() => setShowFlightTimePicker(true)}>
           <Text style={styles.dateBtnText}>{moment(flightTime).format('HH:mm')}</Text>
         </TouchableOpacity>
-        {showFlightTimePicker && <DateTimePicker value={flightTime} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_, t) => {setShowFlightTimePicker(false); if (t) {setFlightTime(t); setValue('flightTime', toAPITime(t));}}} />}
+        {showFlightTimePicker && <DateTimePicker value={flightTime} mode="time" is24Hour display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_, t) => {setShowFlightTimePicker(false); if (t) {setFlightTime(t); setValue('flightTime', toAPITime(t));}}} />}
 
         <Text style={styles.lbl}>Arrival / Departure</Text>
         <Controller control={control} name="arrivalDeparture" render={({field: {onChange, value}}) => (

@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useSelector, useDispatch} from 'react-redux';
@@ -19,12 +19,12 @@ const getInitials = name => {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
-const StatCard = ({label, value, color, icon}) => (
-  <View style={[styles.statCard, {borderTopColor: color}]}>
+const StatCard = ({label, value, color, icon, onPress, active}) => (
+  <TouchableOpacity style={[styles.statCard, {borderTopColor: color}, active && {borderWidth: 2, borderColor: color}]} onPress={onPress} activeOpacity={0.7}>
     <Text style={styles.statIcon}>{icon}</Text>
     <Text style={[styles.statValue, {color}]}>{value}</Text>
     <Text style={styles.statLabel}>{label}</Text>
-  </View>
+  </TouchableOpacity>
 );
 
 const AdminDashboardScreen = () => {
@@ -34,14 +34,24 @@ const AdminDashboardScreen = () => {
   const officers = useSelector(state => state.officers.list);
   const {list: duties, fetchDuties, isLoading} = useDuties();
 
+  const [statusFilter, setStatusFilter] = useState(null);
+
   const upcoming = duties.filter(d => d.status === DUTY_STATUS.UPCOMING).length;
   const completed = duties.filter(d => d.status === DUTY_STATUS.COMPLETED).length;
   const cancelled = duties.filter(d => d.status === DUTY_STATUS.CANCELLED).length;
+
+  const handleStatPress = status => {
+    setStatusFilter(prev => prev === status ? null : status);
+  };
 
   const sortedDuties = [...duties].sort((a, b) => {
     if (b.date !== a.date) return b.date > a.date ? 1 : -1;
     return (b.flightTime || '') > (a.flightTime || '') ? 1 : -1;
   });
+
+  const filteredDuties = statusFilter
+    ? sortedDuties.filter(d => d.status === statusFilter)
+    : sortedDuties;
 
   useEffect(() => {
     fetchDuties();
@@ -83,9 +93,12 @@ const AdminDashboardScreen = () => {
 
         {/* Stats */}
         <View style={styles.statsRow}>
-          <StatCard label="Upcoming" value={upcoming} color={colors.warning} icon="⏳" />
-          <StatCard label="Completed" value={completed} color={colors.success} icon="✅" />
-          <StatCard label="Cancelled" value={cancelled} color={colors.error} icon="❌" />
+          <StatCard label="Upcoming" value={upcoming} color={colors.warning} icon="⏳"
+            onPress={() => handleStatPress(DUTY_STATUS.UPCOMING)} active={statusFilter === DUTY_STATUS.UPCOMING} />
+          <StatCard label="Completed" value={completed} color={colors.success} icon="✅"
+            onPress={() => handleStatPress(DUTY_STATUS.COMPLETED)} active={statusFilter === DUTY_STATUS.COMPLETED} />
+          <StatCard label="Cancelled" value={cancelled} color={colors.error} icon="❌"
+            onPress={() => handleStatPress(DUTY_STATUS.CANCELLED)} active={statusFilter === DUTY_STATUS.CANCELLED} />
           <StatCard label="Subordinates" value={officers.length} color={colors.primary} icon="👮" />
         </View>
 
@@ -111,15 +124,22 @@ const AdminDashboardScreen = () => {
 
         {/* All Duties */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>All Duties</Text>
+          <Text style={styles.sectionTitle}>
+            {statusFilter ? `${statusFilter.charAt(0) + statusFilter.slice(1).toLowerCase()} Duties` : 'All Duties'}
+          </Text>
           <TouchableOpacity onPress={() => navigation.navigate('Duties', {screen: 'AllDuties'})}>
             <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
+        {statusFilter && (
+          <TouchableOpacity style={styles.clearFilterBtn} onPress={() => setStatusFilter(null)}>
+            <Text style={styles.clearFilterText}>✕ Clear Filter</Text>
+          </TouchableOpacity>
+        )}
 
-        {sortedDuties.length === 0
+        {filteredDuties.length === 0
           ? <EmptyState icon="📋" title="No duties yet" subtitle="Create the first duty to get started" />
-          : sortedDuties.map(d => (
+          : filteredDuties.map(d => (
               <DutyCard key={d.id} duty={d}
                 onPress={() => navigation.navigate('Duties', {screen: 'DutyDetail', params: {dutyId: d.id}})} />
             ))
@@ -157,6 +177,8 @@ const styles = StyleSheet.create({
   sectionHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12},
   sectionTitle: {fontSize: 16, fontWeight: '700', color: colors.text},
   seeAll: {fontSize: 13, color: colors.primary, fontWeight: '500'},
+  clearFilterBtn: {alignSelf: 'flex-start', marginLeft: 16, marginBottom: 8, backgroundColor: colors.primary + '15', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: colors.primary + '40'},
+  clearFilterText: {fontSize: 12, color: colors.primary, fontWeight: '600'},
 });
 
 export default AdminDashboardScreen;

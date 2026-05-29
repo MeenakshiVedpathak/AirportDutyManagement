@@ -56,6 +56,13 @@ exports.confirmDuty = async (req, res, next) => {
 
 exports.getDuties = async (req, res, next) => {
   try {
+    // Auto-complete any UPCOMING duties whose date has already passed
+    const today = new Date().toISOString().split('T')[0];
+    await Duty.updateMany(
+      { status: 'UPCOMING', date: { $lt: today } },
+      { $set: { status: 'COMPLETED' } }
+    );
+
     const { status, officerId, airportId, terminalId, dateFrom, dateTo, mine, page = 1, limit = 20 } = req.query;
     const filter = {};
 
@@ -203,9 +210,9 @@ exports.updateDuty = async (req, res, next) => {
   try {
     const allowed = [
       'date', 'reportingTime', 'guestArrivalTime', 'officeType',
-      'from', 'to', 'flightNo', 'flightTime', 'airportId', 'airportName',
+      'from', 'to', 'airline', 'flightNo', 'pnrNo', 'flightTime', 'airportId', 'airportName',
       'terminalId', 'terminalName', 'arrivalDeparture', 'noOfPassengers',
-      'travellerName', 'travellerPhone',
+      'travellerName', 'travellerDesignation', 'travellerPhone',
     ];
     const duty = await Duty.findById(req.params.id);
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
@@ -214,6 +221,41 @@ exports.updateDuty = async (req, res, next) => {
     }
     await duty.save();
     res.json(duty.toJSON());
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.uploadDutyPdf = async (req, res, next) => {
+  try {
+    const { filename, data, mimeType, size } = req.body;
+    if (!data) return res.status(400).json({ message: 'No file data provided' });
+    const duty = await Duty.findById(req.params.id);
+    if (!duty) return res.status(404).json({ message: 'Duty not found' });
+    duty.pdfAttachment = {
+      filename: filename || 'document.pdf',
+      data,
+      mimeType: mimeType || 'application/pdf',
+      size: size || 0,
+      uploadedAt: new Date(),
+    };
+    await duty.save();
+    res.json(duty.toJSON());
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getDutyPdf = async (req, res, next) => {
+  try {
+    const duty = await Duty.findById(req.params.id).select('pdfAttachment');
+    if (!duty) return res.status(404).json({ message: 'Duty not found' });
+    if (!duty.pdfAttachment?.data) return res.status(404).json({ message: 'No PDF attached to this duty' });
+    res.json({
+      filename: duty.pdfAttachment.filename,
+      data: duty.pdfAttachment.data,
+      mimeType: duty.pdfAttachment.mimeType,
+    });
   } catch (err) {
     next(err);
   }

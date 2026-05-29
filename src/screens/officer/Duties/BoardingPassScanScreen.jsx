@@ -253,6 +253,9 @@ const BoardingPassScanScreen = () => {
                   <Text style={styles.flightMeta}>
                     {seg.noOfPassengers > 1 ? `👥 ${seg.noOfPassengers} Passengers` : '👤 1 Passenger'}
                   </Text>
+                  {seg.travellerName ? (
+                    <Text style={styles.flightMeta}>👤 {seg.travellerName}</Text>
+                  ) : null}
 
                   <View style={styles.tapRow}>
                     <Text style={styles.tapText}>

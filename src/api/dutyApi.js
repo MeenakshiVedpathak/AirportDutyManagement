@@ -29,3 +29,9 @@ export const updateDuty = (id, data) =>
 
 export const deleteDuty = id =>
   axiosInstance.delete(`/duties/${id}`);
+
+export const uploadDutyPdf = (id, data) =>
+  axiosInstance.post(`/duties/${id}/pdf`, data);
+
+export const getDutyPdf = id =>
+  axiosInstance.get(`/duties/${id}/pdf`);

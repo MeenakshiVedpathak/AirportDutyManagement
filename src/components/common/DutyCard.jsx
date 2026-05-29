@@ -27,22 +27,25 @@ const DutyCard = ({duty, onPress}) => {
         <InfoItem label="Date" value={formatDate(duty.date)} />
         <InfoItem label="Report" value={duty.reportingTime ? formatTime(duty.reportingTime) : '—'} />
         <InfoItem label="Flight Time" value={duty.flightTime ? formatTime(duty.flightTime) : '—'} />
-        <InfoItem label="Terminal" value={duty.terminalName} />
+        <InfoItem label="A/D" value={duty.arrivalDeparture} />
       </View>
       <View style={styles.infoRow}>
-        <InfoItem label="Flight" value={duty.flightNo} />
+        <InfoItem label="Flight" value={duty.airline ? `${duty.airline} ${duty.flightNo}`.trim() : duty.flightNo} />
+        <InfoItem label="PNR" value={duty.pnrNo || '—'} />
         <InfoItem label="From" value={duty.from} />
         <InfoItem label="To" value={duty.to} />
-        <InfoItem label="Type" value={duty.officeType?.replace(/_/g, ' ')} />
       </View>
       <View style={styles.infoRow}>
         <InfoItem label="Airport" value={duty.airportName || duty.airport} />
-        <InfoItem label="A/D" value={duty.arrivalDeparture} />
+        <InfoItem label="Terminal" value={duty.terminalName} />
       </View>
-      {duty.travellerName ? (
+      {(duty.travellerName || duty.travellerDesignation) ? (
         <View style={styles.travellerRow}>
           <Text style={styles.travellerLabel}>Traveller</Text>
-          <Text style={styles.travellerName}>{duty.travellerName}</Text>
+          <Text style={styles.travellerName}>
+            {duty.travellerName || '—'}
+            {duty.travellerDesignation ? `, ${duty.travellerDesignation}` : ''}
+          </Text>
         </View>
       ) : null}
       <View style={[styles.claimBadge, {backgroundColor: badge.bg}]}>
@@ -72,7 +75,7 @@ const styles = StyleSheet.create({
   infoValue: {fontSize: 13, fontWeight: '500', color: colors.text, marginTop: 1},
   travellerRow: {flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6},
   travellerLabel: {fontSize: 11, color: colors.textSecondary},
-  travellerName: {fontSize: 12, fontWeight: '600', color: colors.text},
+  travellerName: {fontSize: 12, fontWeight: '600', color: colors.text, flex: 1, flexWrap: 'wrap'},
   claimBadge: {borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', marginTop: 4},
   claimText: {fontSize: 11, fontWeight: '600'},
 });

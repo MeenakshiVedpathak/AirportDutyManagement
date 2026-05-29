@@ -233,21 +233,30 @@ function toTitleCase(str) {
 }
 
 function extractTravellerName(text) {
-  // LASTNAME/FIRSTNAME MR (standard boarding pass)
-  const slashMatch = text.match(/\b([A-Z]+)\/([A-Z]+)\s+(?:MRS|MISS|DR|MR|MS)/);
-  if (slashMatch) return `${toTitleCase(slashMatch[2])} ${toTitleCase(slashMatch[1])}`;
+  // 1. LASTNAME/FIRSTNAME MR — standard IATA boarding pass with title
+  const slashTitleMatch = text.match(/\b([A-Z]+)\/([A-Z]+)\s+(?:MRS|MISS|DR|MR|MS)/);
+  if (slashTitleMatch) return `${toTitleCase(slashTitleMatch[2])} ${toTitleCase(slashTitleMatch[1])}`;
 
-  // OCR misread: LASTNAME FIRSTNAME MR (slash read as space, both 4+ chars to avoid airport codes)
+  // 2. LASTNAME/FIRSTNAME without title — 4+ chars each avoids airport codes (BOM, DEL = 3 chars)
+  const slashNoTitleMatch = text.match(/\b([A-Z]{4,})\/([A-Z]{4,})\b/);
+  if (slashNoTitleMatch) return `${toTitleCase(slashNoTitleMatch[2])} ${toTitleCase(slashNoTitleMatch[1])}`;
+
+  // 3. OCR misread: slash read as space → LASTNAME FIRSTNAME MR (both 4+ chars)
   const spaceMatch = text.match(/\b([A-Z]{4,})[^\S\n]+([A-Z]{4,})[^\S\n]+(?:MRS|MISS|DR|MR|MS)/);
   if (spaceMatch) return `${toTitleCase(spaceMatch[2])} ${toTitleCase(spaceMatch[1])}`;
 
-  // GDS / OTA e-ticket: MR FIRSTNAME LASTNAME followed immediately by ADT/CHD/INF
+  // 4. GDS / OTA e-ticket: MR FIRSTNAME LASTNAME followed by ADT/CHD/INF
   const gdsMatch = text.match(/\b(?:MRS?|MS|MISS|DR)\s+([A-Z][A-Z ]+?)(?=ADT|CHD|INF)/);
   if (gdsMatch) return toTitleCase(gdsMatch[1].trim());
 
-  // Camera-scan / Air India: MR FIRSTNAME LASTNAME (no slash, no ADT suffix)
+  // 5. Title on same line as name: MR FIRSTNAME LASTNAME (spaces only, no newlines)
   const plainMatch = text.match(/\b(?:MRS?|MS|MISS|DR)[^\S\n]+([A-Z]+[^\S\n]+(?:[A-Z]{2,}[^\S\n]+){0,2}[A-Z]{3,})/);
   if (plainMatch) return toTitleCase(plainMatch[1].trim());
+
+  // 6. Title on its own line, name on next line — OCR splits the block:
+  //    "MR\nRAHUL SHARMA" or "MR\nSHARMA RAHUL"
+  const nextLineMatch = text.match(/\b(?:MRS?|MS|MISS|DR)\n([A-Z]+(?:[^\S\n]+[A-Z]{2,}){0,3})\b/);
+  if (nextLineMatch) return toTitleCase(nextLineMatch[1].trim());
 
   return null;
 }

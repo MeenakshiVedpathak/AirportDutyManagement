@@ -43,10 +43,10 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file(MYAPP_UPLOAD_STORE_FILE)
-            storePassword MYAPP_UPLOAD_STORE_PASSWORD
-            keyAlias MYAPP_UPLOAD_KEY_ALIAS
-            keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+            storeFile file(keystoreProperties['GTTDATA_RELEASE_STORE_FILE'])
+            storePassword keystoreProperties['GTTDATA_RELEASE_STORE_PASSWORD']
+            keyAlias keystoreProperties['GTTDATA_RELEASE_KEY_ALIAS']
+            keyPassword keystoreProperties['GTTDATA_RELEASE_KEY_PASSWORD']
         }
     }
     buildTypes {
@@ -73,6 +73,7 @@ dependencies {
     implementation project(':react-native-firebase_messaging')
     implementation project(':react-native-ml-kit_text-recognition')
     implementation project(':react-native-gesture-handler')
+    implementation project(':react-native-documents_picker')
     implementation project(':react-native-image-picker')
     implementation project(':react-native-permissions')
     implementation project(':react-native-safe-area-context')

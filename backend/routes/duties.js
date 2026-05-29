@@ -11,6 +11,8 @@ const {
   updateDutyStatus,
   updateDuty,
   deleteDuty,
+  uploadDutyPdf,
+  getDutyPdf,
 } = require('../controllers/dutyController');
 
 router.use(protect);
@@ -25,5 +27,7 @@ router.patch('/:id/confirm', confirmDuty);
 router.patch('/:id/status', updateDutyStatus);
 router.put('/:id', adminOnly, updateDuty);
 router.delete('/:id', adminOnly, deleteDuty);
+router.post('/:id/pdf', uploadDutyPdf);
+router.get('/:id/pdf', getDutyPdf);
 
 module.exports = router;

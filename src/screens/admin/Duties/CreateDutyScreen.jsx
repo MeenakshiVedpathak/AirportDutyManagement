@@ -14,9 +14,11 @@ import {getOfficers} from '../../../api/officerApi';
 import {getAirports, getTerminals} from '../../../api/airportApi';
 import AppInput from '../../../components/common/AppInput';
 import AppButton from '../../../components/common/AppButton';
+import AutocompleteInput from '../../../components/common/AutocompleteInput';
 import {colors} from '../../../theme/colors';
-import {OFFICE_TYPES, ARRIVAL_DEPARTURE, CITIES} from '../../../constants/dutyFormFields';
+import {OFFICE_TYPES, ARRIVAL_DEPARTURE} from '../../../constants/dutyFormFields';
 import {getDayFromDate, toAPIDate, toAPITime} from '../../../utils/dateUtils';
+import {useCities} from '../../../hooks/useCities';
 import moment from 'moment';
 
 const CreateDutyScreen = () => {
@@ -28,6 +30,17 @@ const CreateDutyScreen = () => {
   const officers = useSelector(state => state.officers.list);
   const {user: adminUser} = useSelector(state => state.auth);
   const {list: airports, terminals} = useSelector(state => state.airports);
+  const duties = useSelector(state => state.duties.list);
+  const cities = useCities();
+
+  const pastNames = [...new Set(duties.map(d => d.travellerName).filter(Boolean))];
+  const pastDesignations = [...new Set(duties.map(d => d.travellerDesignation).filter(Boolean))];
+  const nameToDesignation = duties.reduce((acc, d) => {
+    if (d.travellerName && d.travellerDesignation && !acc[d.travellerName]) {
+      acc[d.travellerName] = d.travellerDesignation;
+    }
+    return acc;
+  }, {});
 
   useEffect(() => {
     dispatch(fetchOfficersStart());
@@ -100,13 +113,17 @@ const CreateDutyScreen = () => {
     resolver: dutyResolver,
     defaultValues: {
       officerId: '', officerName: '',
-      travellerName: '', travellerPhone: '',
+      travellerName: prefill?.travellerName || '',
+      travellerDesignation: '',
+      travellerPhone: '',
       date: prefill?.date || toAPIDate(new Date()),
       reportingTime: toAPITime(new Date()),
       guestArrivalTime: null,
       officeType: '',
       from: prefill?.from || '', to: prefill?.to || '',
+      airline: '',
       flightNo: prefill?.flightNo || '',
+      pnrNo: '',
       flightTime: prefill?.flightTime || toAPITime(new Date()),
       arrivalDeparture: prefill?.arrivalDeparture || 'DEPARTURE',
       airportId: '', airportName: '', terminalId: '', terminalName: '',
@@ -136,6 +153,7 @@ const CreateDutyScreen = () => {
     if (prefill.to) setValue('to', prefill.to);
     if (prefill.flightNo) setValue('flightNo', prefill.flightNo);
     if (prefill.arrivalDeparture) setValue('arrivalDeparture', prefill.arrivalDeparture);
+    if (prefill.travellerName) setValue('travellerName', prefill.travellerName);
   }, [prefill]);
 
   const officerItems = [
@@ -248,23 +266,55 @@ const CreateDutyScreen = () => {
         )}
         {errors.flightTime && <Text style={styles.err}>{errors.flightTime.message}</Text>}
 
-        {/* ── 6. Flight No ── */}
+        {/* ── 6. Airline + Flight No ── */}
+        <Controller control={control} name="airline" render={({field: {onChange, value}}) => (
+          <AppInput label="Airline Code" value={value} onChangeText={onChange}
+            placeholder="e.g. 6E, AI, UK" autoCapitalize="characters" error={errors.airline?.message} />
+        )} />
         <Controller control={control} name="flightNo" render={({field: {onChange, value}}) => (
           <AppInput required label="Flight Number" value={value} onChangeText={onChange}
-            placeholder="e.g. 6E 201" autoCapitalize="characters" error={errors.flightNo?.message} />
+            placeholder="e.g. 6802" autoCapitalize="characters" error={errors.flightNo?.message} />
+        )} />
+        <Controller control={control} name="pnrNo" render={({field: {onChange, value}}) => (
+          <AppInput label="PNR No" value={value} onChangeText={onChange}
+            placeholder="e.g. ABC123" autoCapitalize="characters" error={errors.pnrNo?.message} />
         )} />
 
         {/* ── 7. Name of Traveller ── */}
         <Controller control={control} name="travellerName" render={({field: {onChange, value}}) => (
-          <AppInput label="Name of Traveller" value={value} onChangeText={onChange}
-            placeholder="Enter traveller's full name" autoCapitalize="words"
-            error={errors.travellerName?.message} />
+          <AutocompleteInput
+            label="Name of Traveller"
+            value={value}
+            onChangeText={onChange}
+            onSelect={name => {
+              onChange(name);
+              if (nameToDesignation[name]) setValue('travellerDesignation', nameToDesignation[name]);
+            }}
+            suggestions={pastNames}
+            placeholder="Enter traveller's full name"
+            error={errors.travellerName?.message}
+          />
         )} />
 
-        {/* ── 8. Mobile No. of Traveller ── */}
+        {/* ── 8. Designation ── */}
+        <Controller control={control} name="travellerDesignation" render={({field: {onChange, value}}) => (
+          <AutocompleteInput
+            label="Designation"
+            value={value}
+            onChangeText={onChange}
+            onSelect={onChange}
+            suggestions={pastDesignations}
+            placeholder="e.g. Director, Manager"
+            error={errors.travellerDesignation?.message}
+          />
+        )} />
+
+        {/* ── 9. Contact No. of Traveller ── */}
         <Controller control={control} name="travellerPhone" render={({field: {onChange, value}}) => (
-          <AppInput label="Mobile No. of Traveller" value={value} onChangeText={onChange}
+          <AppInput label="Contact No." value={value}
+            onChangeText={v => onChange(v.replace(/[^0-9]/g, ''))}
             placeholder="10-digit mobile number" keyboardType="phone-pad"
+            maxLength={10}
             error={errors.travellerPhone?.message} />
         )} />
 
@@ -272,7 +322,7 @@ const CreateDutyScreen = () => {
         <Text style={styles.sectionLabel}>From <Text style={styles.requiredStar}>*</Text></Text>
         <Controller control={control} name="from" render={({field: {onChange, value}}) => (
           <DropDownPicker open={fromOpen} setOpen={setFromOpen} value={value} setValue={cb => onChange(cb(value))}
-            items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select From City" style={styles.dropdown} searchable
+            items={cities.map(c => ({label: c, value: c}))} placeholder="Select From City" style={styles.dropdown} searchable
             dropDownContainerStyle={styles.dropdownList} zIndex={6000} listMode="SCROLLVIEW" />
         )} />
         {errors.from && <Text style={styles.err}>{errors.from.message}</Text>}
@@ -281,7 +331,7 @@ const CreateDutyScreen = () => {
         <Text style={styles.sectionLabel}>To <Text style={styles.requiredStar}>*</Text></Text>
         <Controller control={control} name="to" render={({field: {onChange, value}}) => (
           <DropDownPicker open={toOpen} setOpen={setToOpen} value={value} setValue={cb => onChange(cb(value))}
-            items={CITIES.map(c => ({label: c, value: c}))} placeholder="Select To City" style={styles.dropdown} searchable
+            items={cities.map(c => ({label: c, value: c}))} placeholder="Select To City" style={styles.dropdown} searchable
             dropDownContainerStyle={styles.dropdownList} zIndex={5000} listMode="SCROLLVIEW" />
         )} />
         {errors.to && <Text style={styles.err}>{errors.to.message}</Text>}

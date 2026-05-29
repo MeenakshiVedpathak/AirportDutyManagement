@@ -8,6 +8,7 @@ const dutySchema = new mongoose.Schema(
     officerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     officerName: { type: String, default: '' },
     travellerName: { type: String, default: '' },
+    travellerDesignation: { type: String, default: '' },
     travellerPhone: { type: String, default: '' },
     date: { type: String, required: true },
     reportingTime: { type: String, required: true },
@@ -19,8 +20,17 @@ const dutySchema = new mongoose.Schema(
     },
     from: { type: String, required: true },
     to: { type: String, required: true },
+    airline: { type: String, default: '' },
     flightNo: { type: String, required: true },
+    pnrNo: { type: String, default: '' },
     flightTime: { type: String, required: true },
+    pdfAttachment: {
+      filename: { type: String, default: '' },
+      data: { type: String, default: '' },
+      mimeType: { type: String, default: '' },
+      size: { type: Number, default: 0 },
+      uploadedAt: { type: Date, default: null },
+    },
     airportId: { type: mongoose.Schema.Types.ObjectId, ref: 'Airport', required: true },
     airportName: { type: String, required: true },
     terminalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Terminal', required: true },
@@ -47,6 +57,15 @@ const dutySchema = new mongoose.Schema(
         ret.id = ret._id.toString();
         ret.officerId = ret.officerId?.toString ? ret.officerId.toString() : ret.officerId;
         ret.createdBy = ret.createdBy?.toString ? ret.createdBy.toString() : ret.createdBy;
+        if (ret.pdfAttachment && ret.pdfAttachment.data) {
+          ret.pdfAttachment = {
+            filename: ret.pdfAttachment.filename,
+            mimeType: ret.pdfAttachment.mimeType,
+            size: ret.pdfAttachment.size,
+            uploadedAt: ret.pdfAttachment.uploadedAt,
+            hasFile: true,
+          };
+        }
         delete ret._id;
         delete ret.__v;
         return ret;

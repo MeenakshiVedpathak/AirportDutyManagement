@@ -38,6 +38,8 @@ app.use('/api/v1/reports', require('./routes/reports'));
 
 app.use('/api/v1/boarding-pass', require('./routes/boardingPass'));
 
+app.use('/api/v1/cities', require('./routes/cities'));
+
 app.get('/', (req, res) => {
   res.send('Airport Protocol API Running');
 });
