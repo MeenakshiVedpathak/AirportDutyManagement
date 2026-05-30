@@ -1,6 +1,7 @@
 const Duty = require('../models/Duty');
 const User = require('../models/User');
 const { sendPushNotification } = require('../utils/fcm');
+const { uploadPdfToCloudinary, deletePdfFromCloudinary } = require('../utils/cloudinaryStorage');
 
 exports.createDuty = async (req, res, next) => {
   try {
@@ -228,15 +229,22 @@ exports.updateDuty = async (req, res, next) => {
 
 exports.uploadDutyPdf = async (req, res, next) => {
   try {
-    const { filename, data, mimeType, size } = req.body;
+    const { filename, data } = req.body;
     if (!data) return res.status(400).json({ message: 'No file data provided' });
     const duty = await Duty.findById(req.params.id);
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
+
+    // Delete old file from Cloudinary if exists
+    if (duty.pdfAttachment?.storagePath) {
+      await deletePdfFromCloudinary(duty.pdfAttachment.storagePath);
+    }
+
+    const { url, publicId } = await uploadPdfToCloudinary(data, filename || 'document.pdf', req.params.id);
+
     duty.pdfAttachment = {
       filename: filename || 'document.pdf',
-      data,
-      mimeType: mimeType || 'application/pdf',
-      size: size || 0,
+      url,
+      storagePath: publicId,
       uploadedAt: new Date(),
     };
     await duty.save();
@@ -250,12 +258,8 @@ exports.getDutyPdf = async (req, res, next) => {
   try {
     const duty = await Duty.findById(req.params.id).select('pdfAttachment');
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
-    if (!duty.pdfAttachment?.data) return res.status(404).json({ message: 'No PDF attached to this duty' });
-    res.json({
-      filename: duty.pdfAttachment.filename,
-      data: duty.pdfAttachment.data,
-      mimeType: duty.pdfAttachment.mimeType,
-    });
+    if (!duty.pdfAttachment?.url) return res.status(404).json({ message: 'No PDF attached to this duty' });
+    res.json({ url: duty.pdfAttachment.url, filename: duty.pdfAttachment.filename });
   } catch (err) {
     next(err);
   }
