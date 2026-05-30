@@ -13,7 +13,7 @@ exports.addOfficer = async (req, res, next) => {
   try {
     const { name, email, phone, employeeId } = req.body;
     const username = employeeId.toLowerCase();
-    const password = phone.slice(-4);
+    const password = '1234';
 
     const existing = await User.findOne({
       $or: [
