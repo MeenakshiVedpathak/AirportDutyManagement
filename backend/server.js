@@ -40,6 +40,8 @@ app.use('/api/v1/boarding-pass', require('./routes/boardingPass'));
 
 app.use('/api/v1/cities', require('./routes/cities'));
 
+app.use('/api/v1/contacts', require('./routes/contacts'));
+
 app.get('/', (req, res) => {
   res.send('Airport Protocol API Running');
 });

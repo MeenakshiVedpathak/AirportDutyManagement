@@ -11,9 +11,9 @@ exports.getOfficers = async (req, res, next) => {
 
 exports.addOfficer = async (req, res, next) => {
   try {
-    const { name, email, phone, employeeId } = req.body;
+    const { name, email, phone, employeeId, password } = req.body;
+    if (!password) return res.status(400).json({ message: 'Password is required' });
     const username = employeeId.toLowerCase();
-    const password = '1234';
 
     const existing = await User.findOne({
       $or: [
