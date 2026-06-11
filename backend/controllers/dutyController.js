@@ -289,7 +289,6 @@ exports.getDutyPdf = async (req, res, next) => {
 
     const filename = duty.pdfAttachment.filename || 'document.pdf';
 
-    // Use storagePath if available, otherwise extract publicId from the stored URL
     let publicId = duty.pdfAttachment.storagePath;
     if (!publicId) {
       const match = duty.pdfAttachment.url.match(/\/upload\/(?:v\d+\/)?(.+)$/);
@@ -297,7 +296,13 @@ exports.getDutyPdf = async (req, res, next) => {
     }
 
     if (publicId) {
-      const url = generateSignedPdfUrl(publicId);
+      const { cloudinary } = require('../utils/cloudinaryStorage');
+      // private_download_url embeds api_key+signature in the URL itself —
+      // no Cloudinary account settings needed, bypasses all ACL restrictions
+      const url = cloudinary.utils.private_download_url(
+        publicId, '',
+        { resource_type: 'raw', type: 'upload', expires_at: Math.floor(Date.now() / 1000) + 3600 }
+      );
       return res.json({ url, filename });
     }
 
