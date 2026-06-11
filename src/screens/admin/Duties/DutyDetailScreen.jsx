@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Alert} from 'react-native';
-import Share from 'react-native-share';
+import {Linking, NativeModules} from 'react-native';
+import {launchCamera} from 'react-native-image-picker';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSelector, useDispatch} from 'react-redux';
@@ -17,7 +18,8 @@ import {formatDate, formatTime, getDayFromDate} from '../../../utils/dateUtils';
 import {fetchOfficersStart, fetchOfficersSuccess, fetchOfficersFailure} from '../../../store/slices/officerSlice';
 import {getOfficers} from '../../../api/officerApi';
 import {uploadDutyPdf, getDutyPdf} from '../../../api/dutyApi';
-import {pick as pickDocument, types as documentTypes, isErrorWithCode, errorCodes} from '@react-native-documents/picker';
+import axiosInstance from '../../../api/axiosInstance';
+const {FilePicker} = NativeModules;
 
 const Row = ({label, value}) => (
   <View style={styles.row}>
@@ -40,7 +42,7 @@ const AdminDutyDetailScreen = () => {
   const [selectedOfficerId, setSelectedOfficerId] = useState(null);
   const [assigning, setAssigning] = useState(false);
 
-  const user = useSelector(state => state.auth.user);
+  const {user} = useSelector(state => state.auth);
   const officers = useSelector(state => state.officers.list);
 
   useEffect(() => {fetchDuty(dutyId);}, [dutyId]);
@@ -75,22 +77,12 @@ const AdminDutyDetailScreen = () => {
 
   const handleUploadPdf = async () => {
     try {
-      const results = await pickDocument({ type: [documentTypes.pdf, documentTypes.allFiles], allowMultiSelection: false });
-      const result = results[0];
-      if (!result) return;
+      const file = await FilePicker.pickPdf();
       setPdfLoading(true);
-      const response = await fetch(result.uri);
-      const blob = await response.blob();
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      await uploadDutyPdf(dutyId, { filename: result.name, data: base64, mimeType: result.type || 'application/pdf', size: result.size || 0 });
+      await uploadDutyPdf(dutyId, {filename: file.fileName, data: file.base64, mimeType: 'application/pdf', size: 0});
       await fetchDuty(dutyId);
     } catch (e) {
-      if (!isErrorWithCode(e) || e.code !== errorCodes.OPERATION_CANCELED) {
+      if (e?.code !== 'CANCELLED') {
         Alert.alert('Upload Failed', e?.message || 'Could not upload the file.');
       }
     } finally {
@@ -98,17 +90,46 @@ const AdminDutyDetailScreen = () => {
     }
   };
 
-  const handleViewPdf = async () => {
-    try {
-      setPdfLoading(true);
-      const res = await getDutyPdf(dutyId);
-      const { data, filename, mimeType } = res.data;
-      await Share.open({ url: `data:${mimeType || 'application/pdf'};base64,${data}`, type: mimeType || 'application/pdf', filename: filename || 'document.pdf' });
-    } catch (e) {
-      const msg = e?.message || '';
-      if (!e?.dismissedAction && msg !== 'User did not share' && !msg.toLowerCase().includes('cancel')) {
-        Alert.alert('Error', msg || 'Could not open the file.');
+  const handleCapturePhoto = () => {
+    launchCamera({mediaType: 'photo', includeBase64: true, quality: 0.85}, async response => {
+      if (response.didCancel || response.errorCode) return;
+      const asset = response.assets?.[0];
+      if (!asset?.base64) return;
+      try {
+        setPdfLoading(true);
+        await uploadDutyPdf(dutyId, {
+          filename: asset.fileName || `photo_${Date.now()}.jpg`,
+          data: asset.base64,
+          mimeType: asset.type || 'image/jpeg',
+          size: asset.fileSize || 0,
+        });
+        await fetchDuty(dutyId);
+      } catch (e) {
+        Alert.alert('Upload Failed', e?.message || 'Could not upload the photo.');
+      } finally {
+        setPdfLoading(false);
       }
+    });
+  };
+
+  const handleAttachOptions = () => {
+    Alert.alert('Attach File', 'Choose an option', [
+      {text: 'Pick PDF', onPress: handleUploadPdf},
+      {text: 'Capture Photo', onPress: handleCapturePhoto},
+      {text: 'Cancel', style: 'cancel'},
+    ]);
+  };
+
+  const handleViewPdf = async () => {
+    if (!duty?.pdfAttachment?.hasFile) { Alert.alert('No PDF', 'No file is attached to this duty.'); return; }
+    setPdfLoading(true);
+    try {
+      const res = await axiosInstance.get(`/duties/${duty.id}/pdf`);
+      const signedUrl = res.data?.url;
+      if (!signedUrl) throw new Error('No URL returned');
+      Linking.openURL(signedUrl).catch(() => Alert.alert('Error', 'Could not open PDF.'));
+    } catch (e) {
+      Alert.alert('Error', e?.response?.data?.message || e.message || 'Could not load PDF.');
     } finally {
       setPdfLoading(false);
     }
@@ -185,6 +206,7 @@ const AdminDutyDetailScreen = () => {
           <Row label="Airport" value={duty.airportName || duty.airport} />
           <Row label="Terminal" value={duty.terminalName} />
           <Row label="Passengers" value={duty.noOfPassengers?.toString()} />
+          {duty.remark ? <Row label="Remark / Details" value={duty.remark} /> : null}
         </View>
 
         {(duty.travellerName || duty.travellerPhone || duty.travellerDesignation) && (
@@ -210,15 +232,15 @@ const AdminDutyDetailScreen = () => {
                   ? <ActivityIndicator color={colors.primary} size="small" />
                   : <Text style={styles.viewPdfBtnText}>👁  View / Share</Text>}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.replacePdfBtn} onPress={handleUploadPdf} disabled={pdfLoading}>
+              <TouchableOpacity style={styles.replacePdfBtn} onPress={handleAttachOptions} disabled={pdfLoading}>
                 <Text style={styles.replacePdfBtnText}>↺  Replace</Text>
               </TouchableOpacity>
             </>
           ) : (
-            <TouchableOpacity style={styles.uploadPdfBtn} onPress={handleUploadPdf} disabled={pdfLoading}>
+            <TouchableOpacity style={styles.uploadPdfBtn} onPress={handleAttachOptions} disabled={pdfLoading}>
               {pdfLoading
                 ? <ActivityIndicator color={colors.primary} size="small" />
-                : <Text style={styles.uploadPdfBtnText}>📎  Attach PDF / File</Text>}
+                : <Text style={styles.uploadPdfBtnText}>📎  Attach PDF / Photo</Text>}
             </TouchableOpacity>
           )}
         </View>
@@ -288,7 +310,7 @@ const AdminDutyDetailScreen = () => {
         duty={duty}
         senderName={user?.name || ''}
         senderPhone={user?.phone || ''}
-        subordinatePhone={duty?.officerPhone || ''}
+        subordinatePhone={officers.find(o => o.id === duty?.officerId || o._id === duty?.officerId)?.phone || ''}
         onClose={() => setMsgModalVisible(false)}
       />
     </SafeAreaView>

@@ -289,13 +289,18 @@ exports.getDutyPdf = async (req, res, next) => {
 
     const filename = duty.pdfAttachment.filename || 'document.pdf';
 
-    // Return a signed URL — works regardless of Cloudinary access_mode setting
-    if (duty.pdfAttachment.storagePath) {
-      const url = generateSignedPdfUrl(duty.pdfAttachment.storagePath);
+    // Use storagePath if available, otherwise extract publicId from the stored URL
+    let publicId = duty.pdfAttachment.storagePath;
+    if (!publicId) {
+      const match = duty.pdfAttachment.url.match(/\/upload\/(?:v\d+\/)?(.+)$/);
+      publicId = match ? match[1] : null;
+    }
+
+    if (publicId) {
+      const url = generateSignedPdfUrl(publicId);
       return res.json({ url, filename });
     }
 
-    // Fallback: no storagePath (legacy record), return the stored URL as-is
     return res.json({ url: duty.pdfAttachment.url, filename });
   } catch (err) {
     next(err);
