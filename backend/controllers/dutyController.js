@@ -1,7 +1,9 @@
 const Duty = require('../models/Duty');
 const User = require('../models/User');
 const { sendPushNotification } = require('../utils/fcm');
-const { uploadPdfToCloudinary, deletePdfFromCloudinary } = require('../utils/cloudinaryStorage');
+const { uploadPdfToCloudinary, deletePdfFromCloudinary, generateSignedPdfUrl } = require('../utils/cloudinaryStorage');
+const https = require('https');
+const http = require('http');
 
 exports.createDuty = async (req, res, next) => {
   try {
@@ -213,7 +215,7 @@ exports.updateDuty = async (req, res, next) => {
       'date', 'reportingTime', 'guestArrivalTime', 'officeType',
       'from', 'to', 'airline', 'flightNo', 'pnrNo', 'flightTime', 'airportId', 'airportName',
       'terminalId', 'terminalName', 'arrivalDeparture', 'noOfPassengers',
-      'travellerName', 'travellerDesignation', 'travellerPhone', 'pdfAttachment',
+      'travellerName', 'travellerDesignation', 'travellerPhone', 'airportAuthorityPhone', 'remark',
     ];
     const duty = await Duty.findById(req.params.id);
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
@@ -229,17 +231,23 @@ exports.updateDuty = async (req, res, next) => {
 
 exports.uploadDutyPdf = async (req, res, next) => {
   try {
-    const { filename, data } = req.body;
+    const { filename, data, mimeType } = req.body;
+    console.log(`[uploadDutyPdf] duty=${req.params.id} filename=${filename} mimeType=${mimeType} dataLen=${data?.length}`);
     if (!data) return res.status(400).json({ message: 'No file data provided' });
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET)
+      return res.status(500).json({ message: 'PDF storage is not configured on this server. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.' });
+    const MAX_BYTES = 5 * 1024 * 1024;
+    if (Math.round(data.length * 0.75) > MAX_BYTES)
+      return res.status(400).json({ message: 'File exceeds the 5 MB limit' });
     const duty = await Duty.findById(req.params.id);
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
 
-    // Delete old file from Cloudinary if exists
     if (duty.pdfAttachment?.storagePath) {
       await deletePdfFromCloudinary(duty.pdfAttachment.storagePath);
     }
 
-    const { url, publicId } = await uploadPdfToCloudinary(data, filename || 'document.pdf', req.params.id);
+    const { url, publicId } = await uploadPdfToCloudinary(data, filename || 'document.pdf', req.params.id, mimeType);
+    console.log(`[uploadDutyPdf] Cloudinary OK url=${url} publicId=${publicId}`);
 
     duty.pdfAttachment = {
       filename: filename || 'document.pdf',
@@ -250,16 +258,76 @@ exports.uploadDutyPdf = async (req, res, next) => {
     await duty.save();
     res.json(duty.toJSON());
   } catch (err) {
+    console.error('[uploadDutyPdf] ERROR', err?.message);
     next(err);
   }
 };
+
+const fetchBuffer = (url) => new Promise((resolve, reject) => {
+  const protocol = url.startsWith('https') ? https : http;
+  protocol.get(url, (cloudRes) => {
+    if (cloudRes.statusCode >= 300 && cloudRes.statusCode < 400 && cloudRes.headers.location) {
+      cloudRes.resume();
+      return fetchBuffer(cloudRes.headers.location).then(resolve, reject);
+    }
+    if (cloudRes.statusCode !== 200) {
+      cloudRes.resume();
+      return reject(Object.assign(new Error(`Storage fetch failed: ${cloudRes.statusCode}`), { statusCode: cloudRes.statusCode }));
+    }
+    const chunks = [];
+    cloudRes.on('data', chunk => chunks.push(chunk));
+    cloudRes.on('end', () => resolve(Buffer.concat(chunks)));
+    cloudRes.on('error', reject);
+  }).on('error', reject);
+});
 
 exports.getDutyPdf = async (req, res, next) => {
   try {
     const duty = await Duty.findById(req.params.id).select('pdfAttachment');
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
     if (!duty.pdfAttachment?.url) return res.status(404).json({ message: 'No PDF attached to this duty' });
-    res.json({ url: duty.pdfAttachment.url, filename: duty.pdfAttachment.filename });
+
+    const filename = duty.pdfAttachment.filename || 'document.pdf';
+
+    // Return a signed URL — works regardless of Cloudinary access_mode setting
+    if (duty.pdfAttachment.storagePath) {
+      const url = generateSignedPdfUrl(duty.pdfAttachment.storagePath);
+      return res.json({ url, filename });
+    }
+
+    // Fallback: no storagePath (legacy record), return the stored URL as-is
+    return res.json({ url: duty.pdfAttachment.url, filename });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.streamDutyPdf = async (req, res, next) => {
+  try {
+    const duty = await Duty.findById(req.params.id).select('pdfAttachment');
+    if (!duty) return res.status(404).send('Duty not found');
+    if (!duty.pdfAttachment?.url) return res.status(404).send('No PDF attached');
+
+    const filename = duty.pdfAttachment.filename || 'document.pdf';
+    const isImage = /\.(jpe?g|png|gif|webp)$/i.test(filename);
+    const contentType = isImage ? 'image/jpeg' : 'application/pdf';
+
+    let buffer;
+    try {
+      buffer = await fetchBuffer(duty.pdfAttachment.url);
+    } catch {
+      if (!duty.pdfAttachment.storagePath) return res.status(502).send('Could not fetch file');
+      const { cloudinary } = require('../utils/cloudinaryStorage');
+      const privateUrl = cloudinary.utils.private_download_url(
+        duty.pdfAttachment.storagePath, '', { resource_type: 'raw' }
+      );
+      buffer = await fetchBuffer(privateUrl);
+    }
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
   } catch (err) {
     next(err);
   }

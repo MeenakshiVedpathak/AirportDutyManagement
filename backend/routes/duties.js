@@ -13,6 +13,7 @@ const {
   deleteDuty,
   uploadDutyPdf,
   getDutyPdf,
+  streamDutyPdf,
 } = require('../controllers/dutyController');
 
 router.use(protect);
@@ -29,5 +30,6 @@ router.put('/:id', adminOnly, updateDuty);
 router.delete('/:id', adminOnly, deleteDuty);
 router.post('/:id/pdf', uploadDutyPdf);
 router.get('/:id/pdf', getDutyPdf);
+router.get('/:id/pdf/view', streamDutyPdf);
 
 module.exports = router;
