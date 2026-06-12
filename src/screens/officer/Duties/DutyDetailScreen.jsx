@@ -8,7 +8,7 @@ import {useSelector} from 'react-redux';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useDuties} from '../../../hooks/useDuties';
 import {uploadDutyPdf} from '../../../api/dutyApi';
-import axiosInstance from '../../../api/axiosInstance';
+import {API_BASE_URL} from '../../../config';
 import StatusBadge from '../../../components/common/StatusBadge';
 import {STATUS_DESCRIPTIONS, DUTY_STATUS} from '../../../constants/dutyStatus';
 import LoadingOverlay from '../../../components/common/LoadingOverlay';
@@ -26,7 +26,7 @@ const Row = ({label, value}) => (
 const OfficerDutyDetailScreen = () => {
   const navigation = useNavigation();
   const {params: {dutyId}} = useRoute();
-  const {user} = useSelector(state => state.auth);
+  const {user, token} = useSelector(state => state.auth);
   const {selectedDuty: duty, fetchDuty, confirmDuty, claimDuty, releaseDuty, changeStatus, isLoading} = useDuties();
   const [acting, setActing] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -145,16 +145,10 @@ const OfficerDutyDetailScreen = () => {
     ]);
   };
 
-  const handleViewPdf = async () => {
+  const handleViewPdf = () => {
     if (!duty?.pdfAttachment?.hasFile) { Alert.alert('No PDF', 'No file is attached to this duty.'); return; }
-    try {
-      const res = await axiosInstance.get(`/duties/${duty.id}/pdf`);
-      const signedUrl = res.data?.url;
-      if (!signedUrl) throw new Error('No URL returned');
-      Linking.openURL(signedUrl).catch(() => Alert.alert('Error', 'Could not open PDF.'));
-    } catch (e) {
-      Alert.alert('Error', e?.response?.data?.message || e.message || 'Could not load PDF.');
-    }
+    const url = `${API_BASE_URL}/duties/${duty.id}/pdf/view?token=${encodeURIComponent(token)}`;
+    Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open PDF.'));
   };
 
   return (

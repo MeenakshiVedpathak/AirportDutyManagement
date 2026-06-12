@@ -17,8 +17,8 @@ import {shadows} from '../../../theme/spacing';
 import {formatDate, formatTime, getDayFromDate} from '../../../utils/dateUtils';
 import {fetchOfficersStart, fetchOfficersSuccess, fetchOfficersFailure} from '../../../store/slices/officerSlice';
 import {getOfficers} from '../../../api/officerApi';
-import {uploadDutyPdf, getDutyPdf} from '../../../api/dutyApi';
-import axiosInstance from '../../../api/axiosInstance';
+import {uploadDutyPdf} from '../../../api/dutyApi';
+import {API_BASE_URL} from '../../../config';
 const {FilePicker} = NativeModules;
 
 const Row = ({label, value}) => (
@@ -42,7 +42,7 @@ const AdminDutyDetailScreen = () => {
   const [selectedOfficerId, setSelectedOfficerId] = useState(null);
   const [assigning, setAssigning] = useState(false);
 
-  const {user} = useSelector(state => state.auth);
+  const {user, token} = useSelector(state => state.auth);
   const officers = useSelector(state => state.officers.list);
 
   useEffect(() => {fetchDuty(dutyId);}, [dutyId]);
@@ -120,19 +120,10 @@ const AdminDutyDetailScreen = () => {
     ]);
   };
 
-  const handleViewPdf = async () => {
+  const handleViewPdf = () => {
     if (!duty?.pdfAttachment?.hasFile) { Alert.alert('No PDF', 'No file is attached to this duty.'); return; }
-    setPdfLoading(true);
-    try {
-      const res = await axiosInstance.get(`/duties/${duty.id}/pdf`);
-      const signedUrl = res.data?.url;
-      if (!signedUrl) throw new Error('No URL returned');
-      Linking.openURL(signedUrl).catch(() => Alert.alert('Error', 'Could not open PDF.'));
-    } catch (e) {
-      Alert.alert('Error', e?.response?.data?.message || e.message || 'Could not load PDF.');
-    } finally {
-      setPdfLoading(false);
-    }
+    const url = `${API_BASE_URL}/duties/${duty.id}/pdf/view?token=${encodeURIComponent(token)}`;
+    Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open PDF.'));
   };
 
   const handleAssign = async () => {

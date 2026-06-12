@@ -322,17 +322,16 @@ exports.streamDutyPdf = async (req, res, next) => {
     const isImage = /\.(jpe?g|png|gif|webp)$/i.test(filename);
     const contentType = isImage ? 'image/jpeg' : 'application/pdf';
 
-    let buffer;
-    try {
-      buffer = await fetchBuffer(duty.pdfAttachment.url);
-    } catch {
-      if (!duty.pdfAttachment.storagePath) return res.status(502).send('Could not fetch file');
-      const { cloudinary } = require('../utils/cloudinaryStorage');
-      const privateUrl = cloudinary.utils.private_download_url(
-        duty.pdfAttachment.storagePath, '', { resource_type: 'raw' }
+    const { cloudinary } = require('../utils/cloudinaryStorage');
+    let fetchUrl;
+    if (duty.pdfAttachment.storagePath) {
+      fetchUrl = cloudinary.utils.private_download_url(
+        duty.pdfAttachment.storagePath, '', { resource_type: 'raw', type: 'upload', expires_at: Math.floor(Date.now() / 1000) + 300 }
       );
-      buffer = await fetchBuffer(privateUrl);
+    } else {
+      fetchUrl = duty.pdfAttachment.url;
     }
+    const buffer = await fetchBuffer(fetchUrl);
 
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
