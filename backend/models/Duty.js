@@ -62,13 +62,14 @@ const dutySchema = new mongoose.Schema(
         ret.createdBy = ret.createdBy?.toString ? ret.createdBy.toString() : ret.createdBy;
 
         // Never expose binary data in API responses — only expose metadata
-        if (ret.pdfAttachment?.data) {
+        const pdf = ret.pdfAttachment;
+        if (pdf?.data || pdf?.storagePath) {
           ret.pdfAttachment = {
-            fileId:     ret.pdfAttachment.fileId,
-            filename:   ret.pdfAttachment.filename,
-            mimeType:   ret.pdfAttachment.mimeType,
-            size:       ret.pdfAttachment.size,
-            uploadedAt: ret.pdfAttachment.uploadedAt,
+            fileId:     pdf.fileId,
+            filename:   pdf.filename,
+            mimeType:   pdf.mimeType || 'application/pdf',
+            size:       pdf.size,
+            uploadedAt: pdf.uploadedAt,
             hasFile:    true,
           };
         } else {
