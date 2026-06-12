@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert} from 'react-native';
-import {Linking, NativeModules} from 'react-native';
+import {NativeModules} from 'react-native';
 import {launchCamera} from 'react-native-image-picker';
 const {FilePicker} = NativeModules;
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -8,7 +8,8 @@ import {useSelector} from 'react-redux';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useDuties} from '../../../hooks/useDuties';
 import {uploadDutyPdf} from '../../../api/dutyApi';
-import {API_BASE_URL} from '../../../config';
+import axiosInstance from '../../../api/axiosInstance';
+import Share from 'react-native-share';
 import StatusBadge from '../../../components/common/StatusBadge';
 import {STATUS_DESCRIPTIONS, DUTY_STATUS} from '../../../constants/dutyStatus';
 import LoadingOverlay from '../../../components/common/LoadingOverlay';
@@ -26,7 +27,7 @@ const Row = ({label, value}) => (
 const OfficerDutyDetailScreen = () => {
   const navigation = useNavigation();
   const {params: {dutyId}} = useRoute();
-  const {user, token} = useSelector(state => state.auth);
+  const {user} = useSelector(state => state.auth);
   const {selectedDuty: duty, fetchDuty, confirmDuty, claimDuty, releaseDuty, changeStatus, isLoading} = useDuties();
   const [acting, setActing] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -145,10 +146,26 @@ const OfficerDutyDetailScreen = () => {
     ]);
   };
 
-  const handleViewPdf = () => {
+  const handleViewPdf = async () => {
     if (!duty?.pdfAttachment?.hasFile) { Alert.alert('No PDF', 'No file is attached to this duty.'); return; }
-    const url = `${API_BASE_URL}/duties/${duty.id}/pdf/view?token=${encodeURIComponent(token)}`;
-    Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open PDF.'));
+    setPdfLoading(true);
+    try {
+      const res = await axiosInstance.get(`/duties/${duty.id}/pdf/view`, {responseType: 'arraybuffer'});
+      const bytes = new Uint8Array(res.data);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
+      const base64 = btoa(binary);
+      const filename = duty.pdfAttachment.filename || 'document.pdf';
+      const isImage = /\.(jpe?g|png|gif|webp)$/i.test(filename);
+      const mimeType = isImage ? 'image/jpeg' : 'application/pdf';
+      await Share.open({url: `data:${mimeType};base64,${base64}`, type: mimeType, filename});
+    } catch (e) {
+      if (e?.message !== 'User did not share') {
+        Alert.alert('Error', e?.response?.data?.message || e.message || 'Could not load PDF.');
+      }
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   return (

@@ -26,10 +26,13 @@ const dutySchema = new mongoose.Schema(
     pnrNo: { type: String, default: '' },
     flightTime: { type: String, required: true },
     pdfAttachment: {
-      filename: { type: String, default: '' },
-      url: { type: String, default: '' },
-      storagePath: { type: String, default: '' },
-      uploadedAt: { type: Date, default: null },
+      fileId:    { type: String, default: '' },   // UUID — stable reference for this file
+      filename:  { type: String, default: '' },
+      mimeType:  { type: String, default: '' },
+      size:      { type: Number, default: 0 },    // bytes
+      checksum:  { type: String, default: '' },   // MD5 — used for deduplication
+      data:      { type: Buffer },                // binary stored in MongoDB
+      uploadedAt:{ type: Date,   default: null },
     },
     airportId: { type: mongoose.Schema.Types.ObjectId, ref: 'Airport', required: true },
     airportName: { type: String, required: true },
@@ -57,15 +60,21 @@ const dutySchema = new mongoose.Schema(
         ret.id = ret._id.toString();
         ret.officerId = ret.officerId?.toString ? ret.officerId.toString() : ret.officerId;
         ret.createdBy = ret.createdBy?.toString ? ret.createdBy.toString() : ret.createdBy;
-        if (ret.pdfAttachment && ret.pdfAttachment.url) {
+
+        // Never expose binary data in API responses — only expose metadata
+        if (ret.pdfAttachment?.data) {
           ret.pdfAttachment = {
-            filename: ret.pdfAttachment.filename,
-            url: ret.pdfAttachment.url,
+            fileId:     ret.pdfAttachment.fileId,
+            filename:   ret.pdfAttachment.filename,
+            mimeType:   ret.pdfAttachment.mimeType,
+            size:       ret.pdfAttachment.size,
             uploadedAt: ret.pdfAttachment.uploadedAt,
-            hasFile: true,
+            hasFile:    true,
           };
-          delete ret.pdfAttachment.storagePath;
+        } else {
+          ret.pdfAttachment = { hasFile: false };
         }
+
         delete ret._id;
         delete ret.__v;
         return ret;

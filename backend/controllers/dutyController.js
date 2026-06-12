@@ -1,9 +1,7 @@
+const crypto = require('crypto');
 const Duty = require('../models/Duty');
 const User = require('../models/User');
 const { sendPushNotification } = require('../utils/fcm');
-const { uploadPdfToCloudinary, deletePdfFromCloudinary, generateSignedPdfUrl } = require('../utils/cloudinaryStorage');
-const https = require('https');
-const http = require('http');
 
 exports.createDuty = async (req, res, next) => {
   try {
@@ -231,82 +229,51 @@ exports.updateDuty = async (req, res, next) => {
 
 exports.uploadDutyPdf = async (req, res, next) => {
   try {
-    const { filename, data, mimeType } = req.body;
-    console.log(`[uploadDutyPdf] duty=${req.params.id} filename=${filename} mimeType=${mimeType} dataLen=${data?.length}`);
-    if (!data) return res.status(400).json({ message: 'No file data provided' });
-    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET)
-      return res.status(500).json({ message: 'PDF storage is not configured on this server. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.' });
+    const { filename, data: base64Data, mimeType } = req.body;
+    if (!base64Data) return res.status(400).json({ message: 'No file data provided' });
+
+    const buffer = Buffer.from(base64Data, 'base64');
     const MAX_BYTES = 5 * 1024 * 1024;
-    if (Math.round(data.length * 0.75) > MAX_BYTES)
+    if (buffer.length > MAX_BYTES)
       return res.status(400).json({ message: 'File exceeds the 5 MB limit' });
+
+    const checksum = crypto.createHash('md5').update(buffer).digest('hex');
+
     const duty = await Duty.findById(req.params.id);
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
 
-    if (duty.pdfAttachment?.storagePath) {
-      await deletePdfFromCloudinary(duty.pdfAttachment.storagePath);
+    // Deduplication: skip if identical file already attached
+    if (duty.pdfAttachment?.checksum === checksum) {
+      return res.json(duty.toJSON());
     }
 
-    const { url, publicId } = await uploadPdfToCloudinary(data, filename || 'document.pdf', req.params.id, mimeType);
-    console.log(`[uploadDutyPdf] Cloudinary OK url=${url} publicId=${publicId}`);
-
     duty.pdfAttachment = {
-      filename: filename || 'document.pdf',
-      url,
-      storagePath: publicId,
+      fileId:     crypto.randomUUID(),
+      filename:   filename || 'document.pdf',
+      mimeType:   mimeType || 'application/pdf',
+      size:       buffer.length,
+      checksum,
+      data:       buffer,
       uploadedAt: new Date(),
     };
     await duty.save();
     res.json(duty.toJSON());
   } catch (err) {
-    console.error('[uploadDutyPdf] ERROR', err?.message);
     next(err);
   }
 };
-
-const fetchBuffer = (url) => new Promise((resolve, reject) => {
-  const protocol = url.startsWith('https') ? https : http;
-  protocol.get(url, (cloudRes) => {
-    if (cloudRes.statusCode >= 300 && cloudRes.statusCode < 400 && cloudRes.headers.location) {
-      cloudRes.resume();
-      return fetchBuffer(cloudRes.headers.location).then(resolve, reject);
-    }
-    if (cloudRes.statusCode !== 200) {
-      cloudRes.resume();
-      return reject(Object.assign(new Error(`Storage fetch failed: ${cloudRes.statusCode}`), { statusCode: cloudRes.statusCode }));
-    }
-    const chunks = [];
-    cloudRes.on('data', chunk => chunks.push(chunk));
-    cloudRes.on('end', () => resolve(Buffer.concat(chunks)));
-    cloudRes.on('error', reject);
-  }).on('error', reject);
-});
 
 exports.getDutyPdf = async (req, res, next) => {
   try {
     const duty = await Duty.findById(req.params.id).select('pdfAttachment');
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
-    if (!duty.pdfAttachment?.url) return res.status(404).json({ message: 'No PDF attached to this duty' });
-
-    const filename = duty.pdfAttachment.filename || 'document.pdf';
-
-    let publicId = duty.pdfAttachment.storagePath;
-    if (!publicId) {
-      const match = duty.pdfAttachment.url.match(/\/upload\/(?:v\d+\/)?(.+)$/);
-      publicId = match ? match[1] : null;
-    }
-
-    if (publicId) {
-      const { cloudinary } = require('../utils/cloudinaryStorage');
-      // private_download_url embeds api_key+signature in the URL itself —
-      // no Cloudinary account settings needed, bypasses all ACL restrictions
-      const url = cloudinary.utils.private_download_url(
-        publicId, '',
-        { resource_type: 'raw', type: 'upload', expires_at: Math.floor(Date.now() / 1000) + 3600 }
-      );
-      return res.json({ url, filename });
-    }
-
-    return res.json({ url: duty.pdfAttachment.url, filename });
+    if (!duty.pdfAttachment?.data) return res.status(404).json({ message: 'No file attached to this duty' });
+    res.json({
+      filename: duty.pdfAttachment.filename,
+      mimeType: duty.pdfAttachment.mimeType,
+      size:     duty.pdfAttachment.size,
+      fileId:   duty.pdfAttachment.fileId,
+    });
   } catch (err) {
     next(err);
   }
@@ -316,27 +283,13 @@ exports.streamDutyPdf = async (req, res, next) => {
   try {
     const duty = await Duty.findById(req.params.id).select('pdfAttachment');
     if (!duty) return res.status(404).send('Duty not found');
-    if (!duty.pdfAttachment?.url) return res.status(404).send('No PDF attached');
+    if (!duty.pdfAttachment?.data) return res.status(404).send('No file attached to this duty');
 
-    const filename = duty.pdfAttachment.filename || 'document.pdf';
-    const isImage = /\.(jpe?g|png|gif|webp)$/i.test(filename);
-    const contentType = isImage ? 'image/jpeg' : 'application/pdf';
-
-    const { cloudinary } = require('../utils/cloudinaryStorage');
-    let fetchUrl;
-    if (duty.pdfAttachment.storagePath) {
-      fetchUrl = cloudinary.utils.private_download_url(
-        duty.pdfAttachment.storagePath, '', { resource_type: 'raw', type: 'upload', expires_at: Math.floor(Date.now() / 1000) + 300 }
-      );
-    } else {
-      fetchUrl = duty.pdfAttachment.url;
-    }
-    const buffer = await fetchBuffer(fetchUrl);
-
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-    res.setHeader('Content-Length', buffer.length);
-    res.send(buffer);
+    const { filename, mimeType, data } = duty.pdfAttachment;
+    res.setHeader('Content-Type', mimeType || 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename || 'document.pdf'}"`);
+    res.setHeader('Content-Length', data.length);
+    res.send(data);
   } catch (err) {
     next(err);
   }
