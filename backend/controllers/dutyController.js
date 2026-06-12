@@ -1,9 +1,7 @@
 const crypto = require('crypto');
-const https = require('https');
 const Duty = require('../models/Duty');
 const User = require('../models/User');
 const { sendPushNotification } = require('../utils/fcm');
-const { cloudinary } = require('../utils/cloudinaryStorage');
 
 exports.createDuty = async (req, res, next) => {
   try {
@@ -269,13 +267,12 @@ exports.getDutyPdf = async (req, res, next) => {
   try {
     const duty = await Duty.findById(req.params.id).select('pdfAttachment');
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
-    const pdf = duty.pdfAttachment;
-    if (!pdf?.data && !pdf?.storagePath) return res.status(404).json({ message: 'No file attached to this duty' });
+    if (!duty.pdfAttachment?.data) return res.status(404).json({ message: 'No file attached to this duty' });
     res.json({
-      filename:    pdf.filename,
-      mimeType:    pdf.mimeType || 'application/pdf',
-      size:        pdf.size,
-      fileId:      pdf.fileId,
+      filename: duty.pdfAttachment.filename,
+      mimeType: duty.pdfAttachment.mimeType,
+      size:     duty.pdfAttachment.size,
+      fileId:   duty.pdfAttachment.fileId,
     });
   } catch (err) {
     next(err);
@@ -286,62 +283,13 @@ exports.streamDutyPdf = async (req, res, next) => {
   try {
     const duty = await Duty.findById(req.params.id).select('pdfAttachment');
     if (!duty) return res.status(404).send('Duty not found');
+    if (!duty.pdfAttachment?.data) return res.status(404).send('No file attached to this duty');
 
-    // New storage: binary in MongoDB
-    if (duty.pdfAttachment?.data) {
-      const { filename, mimeType, data } = duty.pdfAttachment;
-      res.setHeader('Content-Type', mimeType || 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="${filename || 'document.pdf'}"`);
-      res.setHeader('Content-Length', data.length);
-      return res.send(data);
-    }
-
-    // Legacy storage: file is in Cloudinary — fetch via admin API and stream, then migrate
-    const storagePath = duty.pdfAttachment?.storagePath;
-    if (storagePath) {
-      const signedUrl = cloudinary.utils.private_download_url(storagePath, '', {
-        resource_type: 'raw',
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
-        attachment: false,
-      });
-
-      return new Promise((resolve, reject) => {
-        https.get(signedUrl, cloudRes => {
-          if (cloudRes.statusCode >= 400) {
-            res.status(502).send('Could not retrieve legacy file from storage');
-            return resolve();
-          }
-          const chunks = [];
-          cloudRes.on('data', c => chunks.push(c));
-          cloudRes.on('end', async () => {
-            const buffer = Buffer.concat(chunks);
-            const contentType = cloudRes.headers['content-type'] || 'application/pdf';
-            const fname = duty.pdfAttachment.filename || 'document.pdf';
-            res.setHeader('Content-Type', contentType);
-            res.setHeader('Content-Disposition', `inline; filename="${fname}"`);
-            res.setHeader('Content-Length', buffer.length);
-            res.send(buffer);
-
-            // Migrate: store in MongoDB so next request skips Cloudinary
-            try {
-              duty.pdfAttachment.data = buffer;
-              duty.pdfAttachment.mimeType = contentType;
-              duty.pdfAttachment.size = buffer.length;
-              if (!duty.pdfAttachment.fileId) duty.pdfAttachment.fileId = crypto.randomUUID();
-              duty.pdfAttachment.checksum = crypto.createHash('md5').update(buffer).digest('hex');
-              await duty.save();
-            } catch (_) {}
-            resolve();
-          });
-          cloudRes.on('error', reject);
-        }).on('error', err => {
-          res.status(502).send('Could not retrieve legacy file from storage');
-          resolve();
-        });
-      });
-    }
-
-    return res.status(404).send('No file attached to this duty');
+    const { filename, mimeType, data } = duty.pdfAttachment;
+    res.setHeader('Content-Type', mimeType || 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename || 'document.pdf'}"`);
+    res.setHeader('Content-Length', data.length);
+    res.send(data);
   } catch (err) {
     next(err);
   }
