@@ -1,4 +1,8 @@
 const mongoose = require('mongoose');
+const dns = require('dns');
+
+// Windows DNS stub resolver refuses TCP SRV queries; use Google DNS instead
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 let cached = global._mongooseConnection;
 if (!cached) cached = global._mongooseConnection = { conn: null, promise: null };

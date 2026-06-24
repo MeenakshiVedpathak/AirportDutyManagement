@@ -267,7 +267,8 @@ exports.getDutyPdf = async (req, res, next) => {
   try {
     const duty = await Duty.findById(req.params.id).select('pdfAttachment');
     if (!duty) return res.status(404).json({ message: 'Duty not found' });
-    if (!duty.pdfAttachment?.data) return res.status(404).json({ message: 'No file attached to this duty' });
+    const pdf = duty.pdfAttachment;
+    if (!pdf?.data && !pdf?.storagePath && !pdf?.url) return res.status(404).json({ message: 'No file attached to this duty' });
     res.json({
       filename: duty.pdfAttachment.filename,
       mimeType: duty.pdfAttachment.mimeType,
@@ -283,13 +284,34 @@ exports.streamDutyPdf = async (req, res, next) => {
   try {
     const duty = await Duty.findById(req.params.id).select('pdfAttachment');
     if (!duty) return res.status(404).send('Duty not found');
-    if (!duty.pdfAttachment?.data) return res.status(404).send('No file attached to this duty');
 
-    const { filename, mimeType, data } = duty.pdfAttachment;
-    res.setHeader('Content-Type', mimeType || 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${filename || 'document.pdf'}"`);
-    res.setHeader('Content-Length', data.length);
-    res.send(data);
+    const pdf = duty.pdfAttachment;
+
+    // New path: binary stored in MongoDB
+    if (pdf?.data) {
+      res.setHeader('Content-Type', pdf.mimeType || 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${pdf.filename || 'document.pdf'}"`);
+      res.setHeader('Content-Length', pdf.data.length);
+      return res.send(pdf.data);
+    }
+
+    // Legacy path: Cloudinary-stored duty — generate signed URL and redirect
+    if (pdf?.storagePath && process.env.CLOUDINARY_CLOUD_NAME) {
+      const cloudinary = require('cloudinary').v2;
+      const signedUrl = cloudinary.utils.private_download_url(pdf.storagePath, '', {
+        resource_type: 'raw',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        attachment: false,
+      });
+      return res.redirect(signedUrl);
+    }
+
+    // Legacy path: plain URL (public Cloudinary or any direct URL)
+    if (pdf?.url) {
+      return res.redirect(pdf.url);
+    }
+
+    return res.status(404).send('No file attached to this duty');
   } catch (err) {
     next(err);
   }

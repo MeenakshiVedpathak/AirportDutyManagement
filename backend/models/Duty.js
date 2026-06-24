@@ -26,13 +26,16 @@ const dutySchema = new mongoose.Schema(
     pnrNo: { type: String, default: '' },
     flightTime: { type: String, required: true },
     pdfAttachment: {
-      fileId:    { type: String, default: '' },   // UUID — stable reference for this file
-      filename:  { type: String, default: '' },
-      mimeType:  { type: String, default: '' },
-      size:      { type: Number, default: 0 },    // bytes
-      checksum:  { type: String, default: '' },   // MD5 — used for deduplication
-      data:      { type: Buffer },                // binary stored in MongoDB
-      uploadedAt:{ type: Date,   default: null },
+      fileId:      { type: String, default: '' },
+      filename:    { type: String, default: '' },
+      mimeType:    { type: String, default: '' },
+      size:        { type: Number, default: 0 },
+      checksum:    { type: String, default: '' },
+      data:        { type: Buffer },               // MongoDB binary (new uploads)
+      uploadedAt:  { type: Date,   default: null },
+      // Legacy Cloudinary fields — kept for backward compatibility
+      storagePath: { type: String, default: '' },  // Cloudinary public_id
+      url:         { type: String, default: '' },  // Cloudinary URL
     },
     airportId: { type: mongoose.Schema.Types.ObjectId, ref: 'Airport', required: true },
     airportName: { type: String, required: true },
@@ -62,7 +65,9 @@ const dutySchema = new mongoose.Schema(
         ret.createdBy = ret.createdBy?.toString ? ret.createdBy.toString() : ret.createdBy;
 
         // Never expose binary data in API responses — only expose metadata
-        if (ret.pdfAttachment?.data) {
+        const hasData = !!ret.pdfAttachment?.data;
+        const hasLegacyUrl = !!(ret.pdfAttachment?.storagePath || ret.pdfAttachment?.url);
+        if (hasData || hasLegacyUrl) {
           ret.pdfAttachment = {
             fileId:     ret.pdfAttachment.fileId,
             filename:   ret.pdfAttachment.filename,
