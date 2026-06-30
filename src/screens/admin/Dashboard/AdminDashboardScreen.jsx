@@ -3,14 +3,30 @@ import {View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList} from 're
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useSelector, useDispatch} from 'react-redux';
 import {useNavigation} from '@react-navigation/native';
+import moment from 'moment';
 import {useDuties} from '../../../hooks/useDuties';
 import {fetchOfficersStart, fetchOfficersSuccess, fetchOfficersFailure} from '../../../store/slices/officerSlice';
 import {getOfficers} from '../../../api/officerApi';
 import DutyCard from '../../../components/common/DutyCard';
 import EmptyState from '../../../components/common/EmptyState';
+import WhatsAppMessageModal from '../../../components/common/WhatsAppMessageModal';
 import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
 import {DUTY_STATUS} from '../../../constants/dutyStatus';
+
+const smartSort = duties => [...duties].sort((a, b) => {
+  const today = moment().format('YYYY-MM-DD');
+  const aDate = a.date || '';
+  const bDate = b.date || '';
+  const aFuture = aDate >= today;
+  const bFuture = bDate >= today;
+  if (aFuture !== bFuture) return aFuture ? -1 : 1;
+  if (aDate !== bDate) return aFuture ? (aDate < bDate ? -1 : 1) : (aDate > bDate ? -1 : 1);
+  // Same date — sort by flight time earliest first
+  const aTime = a.flightTime || '';
+  const bTime = b.flightTime || '';
+  return aTime < bTime ? -1 : aTime > bTime ? 1 : 0;
+});
 
 const getInitials = name => {
   if (!name) return '?';
@@ -35,19 +51,18 @@ const AdminDashboardScreen = () => {
   const {list: duties, fetchDuties, isLoading} = useDuties();
 
   const [statusFilter, setStatusFilter] = useState(null);
+  const [msgDuty, setMsgDuty] = useState(null);
 
   const upcoming = duties.filter(d => d.status === DUTY_STATUS.UPCOMING).length;
   const completed = duties.filter(d => d.status === DUTY_STATUS.COMPLETED).length;
   const cancelled = duties.filter(d => d.status === DUTY_STATUS.CANCELLED).length;
+  const pending = duties.filter(d => !d.officerId && d.status === DUTY_STATUS.UPCOMING).length;
 
   const handleStatPress = status => {
     setStatusFilter(prev => prev === status ? null : status);
   };
 
-  const sortedDuties = [...duties].sort((a, b) => {
-    if (b.date !== a.date) return b.date > a.date ? 1 : -1;
-    return (b.flightTime || '') > (a.flightTime || '') ? 1 : -1;
-  });
+  const sortedDuties = smartSort(duties);
 
   const filteredDuties = statusFilter
     ? sortedDuties.filter(d => d.status === statusFilter)
@@ -93,13 +108,14 @@ const AdminDashboardScreen = () => {
 
         {/* Stats */}
         <View style={styles.statsRow}>
+          <StatCard label="Pending" value={pending} color="#7C3AED" icon="🔔"
+            onPress={() => navigation.navigate('Duties', {screen: 'AllDuties', params: {pending: true}})} />
           <StatCard label="Upcoming" value={upcoming} color={colors.warning} icon="⏳"
             onPress={() => handleStatPress(DUTY_STATUS.UPCOMING)} active={statusFilter === DUTY_STATUS.UPCOMING} />
           <StatCard label="Completed" value={completed} color={colors.success} icon="✅"
             onPress={() => handleStatPress(DUTY_STATUS.COMPLETED)} active={statusFilter === DUTY_STATUS.COMPLETED} />
           <StatCard label="Cancelled" value={cancelled} color={colors.error} icon="❌"
             onPress={() => handleStatPress(DUTY_STATUS.CANCELLED)} active={statusFilter === DUTY_STATUS.CANCELLED} />
-          <StatCard label="Subordinates" value={officers.length} color={colors.primary} icon="👮" />
         </View>
 
         {/* Quick Actions */}
@@ -141,12 +157,21 @@ const AdminDashboardScreen = () => {
           ? <EmptyState icon="📋" title="No duties yet" subtitle="Create the first duty to get started" />
           : filteredDuties.map(d => (
               <DutyCard key={d.id} duty={d}
-                onPress={() => navigation.navigate('Duties', {screen: 'DutyDetail', params: {dutyId: d.id}})} />
+                onPress={() => navigation.navigate('Duties', {screen: 'DutyDetail', params: {dutyId: d.id}})}
+                onMessage={setMsgDuty} />
             ))
         }
 
         <View style={{height: 20}} />
       </ScrollView>
+
+      <WhatsAppMessageModal
+        visible={!!msgDuty}
+        duty={msgDuty}
+        senderName={user?.name}
+        senderPhone={user?.phone}
+        onClose={() => setMsgDuty(null)}
+      />
     </SafeAreaView>
   );
 };

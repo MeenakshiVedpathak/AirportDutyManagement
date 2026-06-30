@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
+import moment from 'moment';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useSelector} from 'react-redux';
 import {useNavigation} from '@react-navigation/native';
@@ -8,6 +9,7 @@ import {useNotifications} from '../../../hooks/useNotifications';
 import {checkAndNotifyNewDuties} from '../../../utils/notificationHandler';
 import DutyCard from '../../../components/common/DutyCard';
 import EmptyState from '../../../components/common/EmptyState';
+import WhatsAppMessageModal from '../../../components/common/WhatsAppMessageModal';
 import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
 import {DUTY_STATUS} from '../../../constants/dutyStatus';
@@ -26,7 +28,9 @@ const OfficerDashboardScreen = () => {
   useNotifications();
 
   const [statusFilter, setStatusFilter] = useState(null);
+  const [msgDuty, setMsgDuty] = useState(null);
 
+  const today = moment().format('YYYY-MM-DD');
   const upcoming = duties.filter(d => d.status === DUTY_STATUS.UPCOMING).length;
   const completed = duties.filter(d => d.status === DUTY_STATUS.COMPLETED).length;
   const cancelled = duties.filter(d => d.status === DUTY_STATUS.CANCELLED).length;
@@ -36,8 +40,15 @@ const OfficerDashboardScreen = () => {
   };
 
   const sortedDuties = [...duties].sort((a, b) => {
-    if (b.date !== a.date) return b.date > a.date ? 1 : -1;
-    return (b.flightTime || '') > (a.flightTime || '') ? 1 : -1;
+    const aDate = a.date || '';
+    const bDate = b.date || '';
+    const aFuture = aDate >= today;
+    const bFuture = bDate >= today;
+    if (aFuture !== bFuture) return aFuture ? -1 : 1;
+    if (aDate !== bDate) return aFuture ? (aDate < bDate ? -1 : 1) : (aDate > bDate ? -1 : 1);
+    const aTime = a.flightTime || '';
+    const bTime = b.flightTime || '';
+    return aTime < bTime ? -1 : aTime > bTime ? 1 : 0;
   });
 
   const filteredDuties = statusFilter
@@ -107,10 +118,20 @@ const OfficerDashboardScreen = () => {
         {filteredDuties.length === 0
           ? <EmptyState icon="✈️" title="No duties assigned" subtitle="Available duties are in the Duties tab" />
           : filteredDuties.map(d => (
-              <DutyCard key={d.id} duty={d} onPress={() => navigation.navigate('MyDuties', {screen: 'DutyDetail', params: {dutyId: d.id}}, {initial: false})} />
+              <DutyCard key={d.id} duty={d}
+                onPress={() => navigation.navigate('MyDuties', {screen: 'DutyDetail', params: {dutyId: d.id}}, {initial: false})}
+                onMessage={setMsgDuty} />
             ))
         }
       </ScrollView>
+
+      <WhatsAppMessageModal
+        visible={!!msgDuty}
+        duty={msgDuty}
+        senderName={user?.name}
+        senderPhone={user?.phone}
+        onClose={() => setMsgDuty(null)}
+      />
     </SafeAreaView>
   );
 };

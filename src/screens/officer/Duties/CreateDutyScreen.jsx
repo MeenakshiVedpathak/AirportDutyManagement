@@ -10,11 +10,15 @@ import {dutySchema} from '../../../utils/validationSchemas';
 import {useDuties} from '../../../hooks/useDuties';
 import {fetchAirportsStart, fetchAirportsSuccess, setTerminals} from '../../../store/slices/airportSlice';
 import {getAirports, getTerminals} from '../../../api/airportApi';
-import {pick as pickDocument, types as documentTypes, isErrorWithCode, errorCodes} from '@react-native-documents/picker';
+import {NativeModules} from 'react-native';
+import {launchCamera} from 'react-native-image-picker';
+const {FilePicker} = NativeModules;
 import AppInput from '../../../components/common/AppInput';
 import AppButton from '../../../components/common/AppButton';
 import AutocompleteInput from '../../../components/common/AutocompleteInput';
 import WhatsAppMessageModal from '../../../components/common/WhatsAppMessageModal';
+import CityDropdown from '../../../components/common/CityDropdown';
+import PdfViewerModal from '../../../components/common/PdfViewerModal';
 import {colors} from '../../../theme/colors';
 import {OFFICE_TYPES, ARRIVAL_DEPARTURE} from '../../../constants/dutyFormFields';
 import {getDayFromDate, toAPIDate, toAPITime} from '../../../utils/dateUtils';
@@ -26,11 +30,11 @@ const OfficerCreateDutyScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
-  const {addDuty} = useDuties();
+  const {addDuty, uploadPdf} = useDuties();
   const {user} = useSelector(state => state.auth);
   const {list: airports, terminals} = useSelector(state => state.airports);
   const duties = useSelector(state => state.duties.list);
-  const cities = useCities();
+  const {cities, addCity} = useCities();
 
   const pastNames = [...new Set(duties.map(d => d.travellerName).filter(Boolean))];
   const pastDesignations = [...new Set(duties.map(d => d.travellerDesignation).filter(Boolean))];
@@ -60,24 +64,53 @@ const OfficerCreateDutyScreen = () => {
   );
 
   const [pdfData, setPdfData] = useState(null);
+  const [pdfPreviewVisible, setPdfPreviewVisible] = useState(false);
+
+  const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
   const handlePickPdf = async () => {
     try {
-      const results = await pickDocument({type: [documentTypes.pdf]});
-      if (!results?.length) return;
-      const file = results[0];
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result.split(',')[1];
-        setPdfData({filename: file.name || 'document.pdf', data: base64, mimeType: file.type || 'application/pdf', size: file.size || 0});
-      };
-      reader.readAsDataURL(blob);
+      const file = await FilePicker.pickPdf();
+      if (!file.fileName?.toLowerCase().endsWith('.pdf')) {
+        Alert.alert('Invalid Format', 'Only PDF files are allowed.');
+        return;
+      }
+      const sizeBytes = Math.round(file.base64.length * 0.75);
+      if (sizeBytes > MAX_FILE_BYTES) {
+        Alert.alert('File Too Large', 'Please select a PDF under 5 MB.');
+        return;
+      }
+      setPdfData({filename: file.fileName, data: file.base64, mimeType: 'application/pdf', size: sizeBytes});
     } catch (e) {
-      if (isErrorWithCode(e) && e.code === errorCodes.OPERATION_CANCELED) return;
-      Alert.alert('Error', 'Failed to pick file');
+      if (e?.code !== 'CANCELLED') Alert.alert('Error', 'Failed to pick file');
     }
+  };
+
+  const handleCapturePhoto = () => {
+    launchCamera({mediaType: 'photo', includeBase64: true, quality: 0.85}, response => {
+      if (response.didCancel || response.errorCode) return;
+      const asset = response.assets?.[0];
+      if (!asset?.base64) return;
+      const sizeBytes = asset.fileSize || Math.round(asset.base64.length * 0.75);
+      if (sizeBytes > MAX_FILE_BYTES) {
+        Alert.alert('File Too Large', 'Please capture a photo under 5 MB.');
+        return;
+      }
+      setPdfData({
+        filename: asset.fileName || `photo_${Date.now()}.jpg`,
+        data: asset.base64,
+        mimeType: asset.type || 'image/jpeg',
+        size: sizeBytes,
+      });
+    });
+  };
+
+  const handleAttachOptions = () => {
+    Alert.alert('Attach File', 'Choose an option', [
+      {text: 'Pick PDF', onPress: handlePickPdf},
+      {text: 'Capture Photo', onPress: handleCapturePhoto},
+      {text: 'Cancel', style: 'cancel'},
+    ]);
   };
 
   const [officeTypeOpen, setOfficeTypeOpen] = useState(false);
@@ -125,6 +158,7 @@ const OfficerCreateDutyScreen = () => {
       noOfPassengers: activePrefill?.noOfPassengers ? String(activePrefill.noOfPassengers) : '1',
       travellerName: activePrefill?.travellerName || '',
       travellerDesignation: '',
+      remark: '',
     },
   });
 
@@ -242,11 +276,13 @@ const OfficerCreateDutyScreen = () => {
   const onSubmit = async data => {
     try {
       const payload = {...data};
-      if (pdfData) payload.pdfAttachment = {...pdfData, uploadedAt: new Date().toISOString()};
       const result = await addDuty(payload);
       if (!result) {
         Alert.alert('Save Failed', 'Could not save the duty. Check your connection and try again.');
         return;
+      }
+      if (pdfData) {
+        await uploadPdf(result.id, pdfData.filename, pdfData.data, pdfData.mimeType);
       }
       setCreatedDuty(result);
       setMsgVisible(true);
@@ -286,9 +322,10 @@ const OfficerCreateDutyScreen = () => {
           <AutocompleteInput
             label="Traveller Name"
             value={value}
-            onChangeText={onChange}
+            onChangeText={v => onChange(v.toUpperCase())}
             onSelect={name => {
-              onChange(name);
+              const upper = name.toUpperCase();
+              onChange(upper);
               if (nameToDesignation[name]) setValue('travellerDesignation', nameToDesignation[name]);
             }}
             suggestions={pastNames}
@@ -309,12 +346,27 @@ const OfficerCreateDutyScreen = () => {
           />
         )} />
 
-        <Text style={styles.lbl}>Date & Day</Text>
-        <View style={styles.row}>
-          <TouchableOpacity style={[styles.dateBtn, {flex: 2}]} onPress={() => setShowDatePicker(true)}>
-            <Text style={styles.dateBtnText}>{moment(selectedDate).format('DD MMM YYYY')}</Text>
-          </TouchableOpacity>
-          <View style={[styles.dayBox, {flex: 1}]}><Text style={styles.dayText}>{dayValue}</Text></View>
+        {/* ── Date, Day & Office Type ── */}
+        <View style={styles.triRow}>
+          <View style={styles.triColDate}>
+            <Text style={styles.lbl}>Date</Text>
+            <TouchableOpacity style={styles.dateBtnCompact} onPress={() => setShowDatePicker(true)}>
+              <Text style={styles.dateBtnCompactText}>{moment(selectedDate).format('DD MMM YYYY')}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.triColDay}>
+            <Text style={styles.lbl}>Day</Text>
+            <View style={styles.dayBox}><Text style={styles.dayText}>{dayValue}</Text></View>
+          </View>
+          <View style={[styles.triColType, {zIndex: 5000}]}>
+            <Text style={styles.lbl}>Type <Text style={{color: colors.error}}>*</Text></Text>
+            <Controller control={control} name="officeType" render={({field: {onChange, value}}) => (
+              <DropDownPicker open={officeTypeOpen} setOpen={setOfficeTypeOpen} value={value} setValue={cb => onChange(cb(value))}
+                items={OFFICE_TYPES} placeholder="Select" style={styles.dropdown}
+                dropDownContainerStyle={styles.dropdownList} zIndex={5000} listMode="SCROLLVIEW" />
+            )} />
+            {errors.officeType && <Text style={styles.err}>{errors.officeType.message}</Text>}
+          </View>
         </View>
         {showDatePicker && <DateTimePicker value={selectedDate} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_, d) => {setShowDatePicker(false); if (d) {setSelectedDate(d); setValue('date', toAPIDate(d));}}} />}
 
@@ -324,23 +376,17 @@ const OfficerCreateDutyScreen = () => {
         </TouchableOpacity>
         {showReportingTimePicker && <DateTimePicker value={reportingTime} mode="time" is24Hour display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_, t) => {setShowReportingTimePicker(false); if (t) {setReportingTime(t); setValue('reportingTime', toAPITime(t));}}} />}
 
-        <Text style={styles.lbl}>Office / Holiday Type</Text>
-        <Controller control={control} name="officeType" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={officeTypeOpen} setOpen={setOfficeTypeOpen} value={value} setValue={cb => onChange(cb(value))} items={OFFICE_TYPES} placeholder="Select Type" style={styles.dropdown} dropDownContainerStyle={styles.dropdownList} zIndex={5000} listMode="SCROLLVIEW" />
-        )} />
-        {errors.officeType && <Text style={styles.err}>{errors.officeType.message}</Text>}
-
-        <Text style={styles.lbl}>From</Text>
         <Controller control={control} name="from" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={fromOpen} setOpen={setFromOpen} value={value} setValue={cb => onChange(cb(value))} items={cities.map(c => ({label: c, value: c}))} placeholder="Select From City" style={styles.dropdown} searchable dropDownContainerStyle={styles.dropdownList} zIndex={4000} listMode="SCROLLVIEW" />
+          <CityDropdown label="From" required open={fromOpen} setOpen={setFromOpen} value={value}
+            onChange={onChange} cities={cities} onCityAdded={addCity}
+            zIndex={4000} error={errors.from?.message} />
         )} />
-        {errors.from && <Text style={styles.err}>{errors.from.message}</Text>}
 
-        <Text style={styles.lbl}>To</Text>
         <Controller control={control} name="to" render={({field: {onChange, value}}) => (
-          <DropDownPicker open={toOpen} setOpen={setToOpen} value={value} setValue={cb => onChange(cb(value))} items={cities.map(c => ({label: c, value: c}))} placeholder="Select To City" style={styles.dropdown} searchable dropDownContainerStyle={styles.dropdownList} zIndex={3000} listMode="SCROLLVIEW" />
+          <CityDropdown label="To" required open={toOpen} setOpen={setToOpen} value={value}
+            onChange={onChange} cities={cities} onCityAdded={addCity}
+            zIndex={3000} error={errors.to?.message} />
         )} />
-        {errors.to && <Text style={styles.err}>{errors.to.message}</Text>}
 
         <Controller control={control} name="airline" render={({field: {onChange, value}}) => (
           <AppInput label="Airline Code" value={value} onChangeText={onChange} placeholder="e.g. 6E, AI, UK" autoCapitalize="characters" error={errors.airline?.message} />
@@ -401,6 +447,13 @@ const OfficerCreateDutyScreen = () => {
         )} />
         {errors.terminalId && <Text style={styles.err}>{errors.terminalId.message}</Text>}
 
+        {/* ── Remark / Details ── */}
+        <Controller control={control} name="remark" render={({field: {onChange, value}}) => (
+          <AppInput label="Remark / Details" value={value} onChangeText={onChange}
+            placeholder="Add remark or details" multiline numberOfLines={3}
+            style={{height: 80, textAlignVertical: 'top'}} />
+        )} />
+
         {/* ── PDF Attachment ── */}
         <View style={styles.optionalRow}>
           <Text style={styles.sectionLabel}>PDF Attachment</Text>
@@ -409,16 +462,26 @@ const OfficerCreateDutyScreen = () => {
         {pdfData ? (
           <View style={styles.pdfAttached}>
             <Text style={styles.pdfName} numberOfLines={1}>📎 {pdfData.filename}</Text>
+            <TouchableOpacity onPress={() => setPdfPreviewVisible(true)} style={styles.pdfViewBtn}>
+              <Text style={styles.pdfViewText}>View</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setPdfData(null)} style={styles.pdfRemoveBtn}>
               <Text style={styles.pdfRemoveText}>✕ Remove</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity style={styles.addOptBtn} onPress={handlePickPdf}>
-            <Text style={styles.addOptBtnText}>📎 Attach PDF</Text>
+          <TouchableOpacity style={styles.addOptBtn} onPress={handleAttachOptions}>
+            <Text style={styles.addOptBtnText}>📎 Attach PDF / Photo</Text>
           </TouchableOpacity>
         )}
 
+        <PdfViewerModal
+          visible={pdfPreviewVisible}
+          filename={pdfData?.filename}
+          localBase64={pdfData?.data}
+          localMimeType={pdfData?.mimeType}
+          onClose={() => setPdfPreviewVisible(false)}
+        />
         <AppButton title="Submit Duty" onPress={handleSubmit(onSubmit, onFormError)} loading={isSubmitting} style={styles.btn} />
       </ScrollView>
 
@@ -446,9 +509,15 @@ const styles = StyleSheet.create({
   content: {padding: 16, paddingBottom: 40},
   lbl: {fontSize: 13, fontWeight: '500', color: colors.textSecondary, marginBottom: 5, marginTop: 8},
   row: {flexDirection: 'row', gap: 10, marginBottom: 8},
+  triRow: {flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginBottom: 4},
+  triColDate: {flex: 5},
+  triColDay: {flex: 3},
+  triColType: {flex: 5},
   dateBtn: {borderWidth: 1.5, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: colors.surface, marginBottom: 8},
+  dateBtnCompact: {borderWidth: 1.5, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 11, backgroundColor: colors.surface, marginBottom: 8},
   dateBtnText: {fontSize: 15, color: colors.text},
-  dayBox: {borderWidth: 1.5, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: colors.background, justifyContent: 'center'},
+  dateBtnCompactText: {fontSize: 13, color: colors.text},
+  dayBox: {borderWidth: 1.5, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 11, backgroundColor: colors.background, justifyContent: 'center', marginBottom: 8},
   dayText: {fontSize: 14, color: colors.textSecondary},
   dropdown: {borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, marginBottom: 4},
   dropdownDisabled: {backgroundColor: colors.background, opacity: 0.6},
@@ -456,6 +525,8 @@ const styles = StyleSheet.create({
   err: {fontSize: 11, color: colors.error, marginBottom: 8},
   pdfAttached: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.5, borderColor: '#93C5FD', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: '#EFF6FF', marginBottom: 8},
   pdfName: {fontSize: 13, color: '#1D4ED8', flex: 1, marginRight: 8},
+  pdfViewBtn: {paddingHorizontal: 8, paddingVertical: 4, backgroundColor: colors.primary + '15', borderRadius: 6, marginRight: 6},
+  pdfViewText: {fontSize: 12, color: colors.primary, fontWeight: '600'},
   pdfRemoveBtn: {paddingHorizontal: 8, paddingVertical: 4, backgroundColor: colors.error + '15', borderRadius: 6},
   pdfRemoveText: {fontSize: 12, color: colors.error, fontWeight: '600'},
   readOnly: {backgroundColor: '#F3F4F6'},

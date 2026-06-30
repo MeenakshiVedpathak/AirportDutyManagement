@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, Linking} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useForm, Controller} from 'react-hook-form';
 import {useNavigation} from '@react-navigation/native';
@@ -11,7 +11,7 @@ import {useDuties} from '../../../hooks/useDuties';
 import {fetchAirportsStart, fetchAirportsSuccess, setTerminals} from '../../../store/slices/airportSlice';
 import {getAirports, getTerminals} from '../../../api/airportApi';
 import {NativeModules} from 'react-native';
-import axiosInstance from '../../../api/axiosInstance';
+import PdfViewerModal from '../../../components/common/PdfViewerModal';
 import {launchCamera} from 'react-native-image-picker';
 const {FilePicker} = NativeModules;
 import AppInput from '../../../components/common/AppInput';
@@ -73,6 +73,7 @@ const EditDutyScreen = () => {
   const [hasGuestArrivalTime, setHasGuestArrivalTime] = useState(!!duty?.guestArrivalTime);
 
   const [pdfData, setPdfData] = useState(null);
+  const [pdfVisible, setPdfVisible] = useState(false);
 
   const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
@@ -113,16 +114,9 @@ const EditDutyScreen = () => {
     });
   };
 
-  const handleViewExistingPdf = async () => {
+  const handleViewExistingPdf = () => {
     if (!duty?.pdfAttachment?.hasFile) { Alert.alert('Error', 'No PDF attached.'); return; }
-    try {
-      const res = await axiosInstance.get(`/duties/${duty.id}/pdf`);
-      const signedUrl = res.data?.url;
-      if (!signedUrl) throw new Error('No URL returned');
-      Linking.openURL(signedUrl).catch(() => Alert.alert('Error', 'Could not open PDF.'));
-    } catch (e) {
-      Alert.alert('Error', e?.response?.data?.message || e.message || 'Could not load PDF.');
-    }
+    setPdfVisible(true);
   };
 
   const handleAttachOptions = () => {
@@ -470,6 +464,14 @@ const EditDutyScreen = () => {
 
         <AppButton title="Save Changes" onPress={handleSubmit(onSubmit, onFormError)} loading={isSubmitting} style={styles.btn} />
       </ScrollView>
+
+      <PdfViewerModal
+        visible={pdfVisible}
+        dutyId={duty?.id}
+        filename={duty?.pdfAttachment?.filename}
+        mimeType={duty?.pdfAttachment?.mimeType}
+        onClose={() => setPdfVisible(false)}
+      />
     </SafeAreaView>
   );
 };

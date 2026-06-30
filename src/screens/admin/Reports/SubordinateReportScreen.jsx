@@ -151,6 +151,11 @@ const SubordinateReportScreen = () => {
                 <StatBox label="Holiday / Before / After" value={item.holidayBeforeAfterDuty || 0} color="#7C3AED" />
               </View>
             </View>
+            <TouchableOpacity
+              style={styles.viewDutiesBtn}
+              onPress={() => navigation.navigate('DutyReport', {officerId: item.officer?.id})}>
+              <Text style={styles.viewDutiesBtnText}>📋  View Duties Report →</Text>
+            </TouchableOpacity>
           </View>
         )}
         contentContainerStyle={styles.list}
@@ -184,7 +189,7 @@ const styles = StyleSheet.create({
   avatar: {width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 12},
   avatarText: {color: colors.white, fontSize: 17, fontWeight: '700'},
   officerInfo: {flex: 1},
-  name: {fontSize: 15, fontWeight: '600', color: colors.text},
+  name: {fontSize: 15, fontWeight: '600', color: colors.text, textTransform: 'uppercase'},
   empId: {fontSize: 12, color: colors.textSecondary},
   totalBadge: {alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6},
   totalBadgeNum: {fontSize: 18, fontWeight: '700', color: colors.primary},
@@ -194,6 +199,8 @@ const styles = StyleSheet.create({
   statValue: {fontSize: 16, fontWeight: '700'},
   statLabel: {fontSize: 10, color: colors.textSecondary, marginTop: 2, textAlign: 'center'},
   summarySection: {marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10},
+  viewDutiesBtn: {marginTop: 12, backgroundColor: colors.primary + '12', borderWidth: 1, borderColor: colors.primary + '40', borderRadius: 8, paddingVertical: 10, alignItems: 'center'},
+  viewDutiesBtnText: {fontSize: 13, color: colors.primary, fontWeight: '600'},
   summaryHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2},
   summaryTitle: {fontSize: 12, fontWeight: '700', color: colors.text, textTransform: 'uppercase', letterSpacing: 0.4},
   summaryMonth: {fontSize: 12, color: colors.textSecondary, fontWeight: '500'},

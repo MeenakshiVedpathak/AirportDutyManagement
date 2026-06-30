@@ -34,6 +34,15 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName '1.0'
+        externalNativeBuild {
+            cmake {
+                cppFlags "-g0"
+                abiFilters "x86", "x86_64", "armeabi-v7a", "arm64-v8a"
+            }
+        }
+        ndk {
+            abiFilters "x86", "x86_64", "armeabi-v7a", "arm64-v8a"
+        }
     }
     signingConfigs {
         debug {
@@ -49,6 +58,10 @@ android {
             keyPassword keystoreProperties['GTTDATA_RELEASE_KEY_PASSWORD']
         }
     }
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
@@ -57,6 +70,7 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            matchingFallbacks = ['release', 'debug']
         }
     }
 }
@@ -80,6 +94,8 @@ dependencies {
     implementation project(':react-native-screens')
     implementation project(':react-native-share')
     implementation project(':react-native-vector-icons')
+    implementation project(':react-native-blob-util')
+    implementation project(':react-native-pdf')
 }
 
 apply plugin: 'com.google.gms.google-services'

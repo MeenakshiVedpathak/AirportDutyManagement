@@ -18,14 +18,14 @@ const AddOfficerScreen = () => {
   const navigation = useNavigation();
   const {control, handleSubmit, formState: {errors, isSubmitting}} = useForm({
     resolver: yupResolver(addOfficerSchema),
-    defaultValues: {name: '', phone: '', email: '', employeeId: ''},
+    defaultValues: {name: '', phone: '', email: '', employeeId: '', password: ''},
   });
 
   const onSubmit = async data => {
     try {
       const res = await addOfficerApi({...data, isEnabled: true});
       dispatch(addOfficer(res.data));
-      Toast.show({type: 'success', text1: 'Subordinate Added', text2: `${data.name} added. Login: ${data.employeeId.toLowerCase()} / ${data.phone.slice(-4)}`});
+      Toast.show({type: 'success', text1: 'Subordinate Added', text2: `${data.name} added. Login: ${data.employeeId.toLowerCase()}`});
       navigation.goBack();
     } catch (err) {
       Toast.show({type: 'error', text1: 'Error', text2: err?.message || 'Failed to add subordinate'});
@@ -44,20 +44,17 @@ const AddOfficerScreen = () => {
           <AppInput required label="Full Name" value={value} onChangeText={onChange} placeholder="Enter full name" autoCapitalize="words" error={errors.name?.message} />
         )} />
         <Controller control={control} name="employeeId" render={({field: {onChange, value}}) => (
-          <AppInput required label="Employee ID" value={value} onChangeText={onChange} placeholder="e.g. EMP001" error={errors.employeeId?.message} />
+          <AppInput required label="Employee ID / User ID" value={value} onChangeText={onChange} placeholder="e.g. EMP001" error={errors.employeeId?.message} />
         )} />
         <Controller control={control} name="phone" render={({field: {onChange, value}}) => (
-          <AppInput required label="Phone Number" value={value} onChangeText={onChange} placeholder="10-digit mobile number" keyboardType="phone-pad" error={errors.phone?.message} />
+          <AppInput required label="Phone Number" value={value} onChangeText={v => onChange(v.replace(/[^0-9]/g, '').slice(0, 10))} placeholder="10-digit mobile number" keyboardType="phone-pad" maxLength={10} error={errors.phone?.message} />
         )} />
         <Controller control={control} name="email" render={({field: {onChange, value}}) => (
           <AppInput label="Email" value={value} onChangeText={onChange} placeholder="subordinate@gttdata.ai" keyboardType="email-address" autoCapitalize="none" error={errors.email?.message} />
         )} />
-        <View style={styles.infoBox}>
-          <Text style={styles.infoTitle}>Default Login Credentials</Text>
-          <Text style={styles.infoText}>Username: Employee ID (lowercase)</Text>
-          <Text style={styles.infoText}>Password: Last 4 digits of Phone No.</Text>
-          <Text style={styles.infoNote}>Share these with the subordinate after creation.</Text>
-        </View>
+        <Controller control={control} name="password" render={({field: {onChange, value}}) => (
+          <AppInput required label="Password" value={value} onChangeText={onChange} placeholder="Set login password" secureTextEntry error={errors.password?.message} />
+        )} />
         <AppButton title="Add Subordinate" onPress={handleSubmit(onSubmit)} loading={isSubmitting} style={styles.btn} />
       </ScrollView>
     </SafeAreaView>
@@ -71,10 +68,6 @@ const styles = StyleSheet.create({
   title: {fontSize: 18, fontWeight: '700', color: colors.text},
   content: {padding: 16},
   btn: {marginTop: 8},
-  infoBox: {backgroundColor: '#EFF6FF', borderRadius: 10, padding: 14, marginTop: 12, borderLeftWidth: 3, borderLeftColor: '#3B82F6'},
-  infoTitle: {fontSize: 13, fontWeight: '700', color: '#1D4ED8', marginBottom: 6},
-  infoText: {fontSize: 13, color: '#1E40AF', marginBottom: 2},
-  infoNote: {fontSize: 12, color: '#3B82F6', marginTop: 6, fontStyle: 'italic'},
 });
 
 export default AddOfficerScreen;

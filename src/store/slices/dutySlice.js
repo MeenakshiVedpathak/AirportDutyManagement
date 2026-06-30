@@ -13,6 +13,7 @@ const dutySlice = createSlice({
       airport: null,
       dateFrom: null,
       dateTo: null,
+      pending: null,
     },
     pagination: {page: 1, total: 0, hasMore: true},
   },
@@ -46,7 +47,7 @@ const dutySlice = createSlice({
       state.filters = {...state.filters, ...action.payload};
     },
     clearFilters(state) {
-      state.filters = {status: null, officerId: null, airport: null, dateFrom: null, dateTo: null};
+      state.filters = {status: null, officerId: null, airport: null, dateFrom: null, dateTo: null, pending: null};
     },
     updateDutyInList(state, action) {
       const idx = state.list.findIndex(d => d.id === action.payload.id);

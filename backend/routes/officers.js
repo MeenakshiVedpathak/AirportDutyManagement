@@ -12,6 +12,6 @@ router.use(protect, adminOnly);
 router.get('/', getOfficers);
 router.post('/', addOfficer);
 router.put('/:id', updateOfficer);
-router.patch('/:id/access', toggleAccess);
+router.post('/:id/access', toggleAccess);
 
 module.exports = router;

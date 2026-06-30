@@ -10,10 +10,12 @@ import ScanToCompleteScreen from '../screens/officer/Duties/ScanToCompleteScreen
 import BoardingPassScanScreen from '../screens/officer/Duties/BoardingPassScanScreen';
 import ProfileScreen from '../screens/officer/Profile/ProfileScreen';
 import ChangePasswordScreen from '../screens/shared/ChangePasswordScreen';
+import OfficerReportScreen from '../screens/officer/Reports/OfficerReportScreen';
 
 const Tab = createBottomTabNavigator();
 const DutyStack = createNativeStackNavigator();
 const ScanStack = createNativeStackNavigator();
+const ReportStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 
 const DutiesNavigator = () => (
@@ -28,6 +30,12 @@ const ScanNavigator = () => (
   <ScanStack.Navigator screenOptions={{headerShown: false}}>
     <ScanStack.Screen name="ScanScreen" component={BoardingPassScanScreen} />
   </ScanStack.Navigator>
+);
+
+const ReportNavigator = () => (
+  <ReportStack.Navigator screenOptions={{headerShown: false}}>
+    <ReportStack.Screen name="OfficerReport" component={OfficerReportScreen} />
+  </ReportStack.Navigator>
 );
 
 const ProfileNavigator = () => (

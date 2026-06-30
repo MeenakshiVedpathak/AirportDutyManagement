@@ -24,7 +24,7 @@ npx patch-package   # applied automatically via postinstall
 
 ### Android build (Windows)
 ```powershell
-$env:ANDROID_HOME = "C:\Android\sdk"
+$env:ANDROID_HOME = "C:\Users\MeenakshiVedpathak\AppData\Local\Android\Sdk"
 Set-Location android
 .\gradlew.bat app:assembleDebug
 ```

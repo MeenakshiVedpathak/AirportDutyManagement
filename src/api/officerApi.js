@@ -10,4 +10,4 @@ export const updateOfficer = (id, data) =>
   axiosInstance.put(`/officers/${id}`, data);
 
 export const toggleOfficerAccess = (id, isEnabled) =>
-  axiosInstance.patch(`/officers/${id}/access`, {isEnabled});
+  axiosInstance.post(`/officers/${id}/access`, {isEnabled});

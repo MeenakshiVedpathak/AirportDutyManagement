@@ -11,7 +11,7 @@ const claimBadge = duty => {
   return {label: '✓ Confirmed', bg: '#DCFCE7', text: '#16A34A'};
 };
 
-const DutyCard = ({duty, onPress}) => {
+const DutyCard = ({duty, onPress, onMessage}) => {
   const badge = claimBadge(duty);
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
@@ -40,12 +40,19 @@ const DutyCard = ({duty, onPress}) => {
         <InfoItem label="Terminal" value={duty.terminalName} />
       </View>
       {(duty.travellerName || duty.travellerDesignation) ? (
-        <View style={styles.travellerRow}>
-          <Text style={styles.travellerLabel}>Traveller</Text>
-          <Text style={styles.travellerName}>
-            {duty.travellerName || '—'}
-            {duty.travellerDesignation ? `, ${duty.travellerDesignation}` : ''}
-          </Text>
+        <View style={styles.travellerBlock}>
+          {duty.travellerName ? (
+            <View style={styles.travellerRow}>
+              <Text style={styles.travellerLabel}>Traveller</Text>
+              <Text style={styles.travellerName}>{duty.travellerName}</Text>
+            </View>
+          ) : null}
+          {duty.travellerDesignation ? (
+            <View style={styles.travellerRow}>
+              <Text style={styles.travellerLabel}>Designation</Text>
+              <Text style={styles.travellerName}>{duty.travellerDesignation}</Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
       <View style={styles.bottomRow}>
@@ -58,6 +65,11 @@ const DutyCard = ({duty, onPress}) => {
           </View>
         )}
       </View>
+      {onMessage && (
+        <TouchableOpacity style={styles.msgBtn} onPress={e => { e.stopPropagation?.(); onMessage(duty); }} activeOpacity={0.8}>
+          <Text style={styles.msgBtnText}>📤  Send Messages</Text>
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 };
@@ -73,14 +85,17 @@ const styles = StyleSheet.create({
   card: {backgroundColor: colors.white, borderRadius: 10, padding: 14, marginBottom: 10, ...shadows.sm},
   row: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'},
   flex: {flex: 1, marginRight: 8},
+  msgBtn: {backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 11, alignItems: 'center', marginTop: 10},
+  msgBtnText: {color: '#fff', fontSize: 14, fontWeight: '700'},
   srno: {fontSize: 11, color: colors.textSecondary, marginBottom: 2},
-  officer: {fontSize: 15, fontWeight: '600', color: colors.text},
+  officer: {fontSize: 15, fontWeight: '600', color: colors.text, textTransform: 'uppercase'},
   divider: {height: 1, backgroundColor: colors.border, marginVertical: 10},
   infoRow: {flexDirection: 'row', marginBottom: 6},
   infoItem: {flex: 1},
   infoLabel: {fontSize: 11, color: colors.textSecondary},
   infoValue: {fontSize: 13, fontWeight: '500', color: colors.text, marginTop: 1},
-  travellerRow: {flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6},
+  travellerBlock: {marginBottom: 6},
+  travellerRow: {flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2},
   travellerLabel: {fontSize: 11, color: colors.textSecondary},
   travellerName: {fontSize: 12, fontWeight: '600', color: colors.text, flex: 1, flexWrap: 'wrap'},
   bottomRow: {flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap'},

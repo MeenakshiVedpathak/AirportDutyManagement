@@ -1,8 +1,9 @@
 import React, {useState, useEffect} from 'react';
 import {
   Modal, View, Text, StyleSheet, TouchableOpacity,
-  TextInput, ScrollView, Share, Linking,
+  TextInput, ScrollView, Share, Linking, ActivityIndicator,
 } from 'react-native';
+import {getContacts} from '../../api/contactApi';
 import {colors} from '../../theme/colors';
 import {shadows} from '../../theme/spacing';
 import {formatTime, formatDate} from '../../utils/dateUtils';
@@ -33,7 +34,7 @@ const flightLine = (isDeparture, from, to, flightTime) =>
     ? `Flight departure from ${from || '__'} at ${formatTime(flightTime)} and arriving ${to || '__'}.`
     : `Flight arriving at ${to || '__'} at ${formatTime(flightTime)} from ${from || '__'}.`;
 
-const buildVipGuestMessage = ({travellerName, travellerDesignation, travellerPhone, senderName, senderPhone, airportName, date, airline, flightNo, flightTime, from, to, arrivalDeparture}) => {
+const buildVipGuestMessage = ({travellerName, travellerDesignation, travellerPhone, senderName, contactNo, airportName, date, airline, flightNo, flightTime, from, to, arrivalDeparture}) => {
   const formattedDate = date ? formatDate(date, 'DD.MM.YYYY') : '__________';
   const traveller = [travellerName, travellerDesignation, travellerPhone].filter(Boolean).join(', ') || '__________';
   const isDeparture = arrivalDeparture === 'DEPARTURE';
@@ -57,14 +58,14 @@ const buildVipGuestMessage = ({travellerName, travellerDesignation, travellerPho
     `Income Tax Officer (HQ), Airport (Protocol)`,
     `Mumbai`,
     '',
-    `Cont No ${senderPhone || '9869141242/9969236242'}`,
+    `Cont No ${contactNo || senderName || ''}`,
   ];
   return lines.join('\n');
 };
 
-const buildAirportMessage = ({travellerName, travellerDesignation, senderName, senderPhone, date, airline, flightNo, flightTime, from, to, arrivalDeparture}) => {
+const buildAirportMessage = ({travellerName, travellerDesignation, travellerPhone, senderName, contactNo, date, airline, flightNo, flightTime, from, to, arrivalDeparture}) => {
   const formattedDate = date ? formatDate(date, 'DD.MM.YYYY') : '__________';
-  const traveller = [travellerName, travellerDesignation].filter(Boolean).join(', ') || '__________';
+  const traveller = [travellerName, travellerDesignation, travellerPhone].filter(Boolean).join(', ') || '__________';
   const isDeparture = arrivalDeparture === 'DEPARTURE';
   const lines = [
     `Sir/Madam,`,
@@ -83,7 +84,7 @@ const buildAirportMessage = ({travellerName, travellerDesignation, senderName, s
     senderName || '__________',
     `Income Tax Officer (HQ), Airport (Protocol)`,
     `Mumbai`,
-    `Cont No ${senderPhone || '9869141242/9969236242'}`,
+    `Cont No ${contactNo || senderName || ''}`,
   ];
   return lines.join('\n');
 };
@@ -93,13 +94,28 @@ const TABS = ['Traveller', 'VIP Guest', 'Airport Authority'];
 const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordinatePhone, onClose}) => {
   const [contactNo, setContactNo] = useState('');
   const [activeTab, setActiveTab] = useState(0);
+  const [airportPhone, setAirportPhone] = useState('');
+  const [contacts, setContacts] = useState([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [selectedContact, setSelectedContact] = useState(null);
 
-  const defaultPhone = duty?.officerName === senderName ? senderPhone : subordinatePhone;
+  // Prefer explicitly passed subordinatePhone, then duty.officerPhone, then sender's own phone
+  const defaultPhone = subordinatePhone || duty?.officerPhone || (duty?.officerName === senderName ? senderPhone : '');
 
   useEffect(() => {
     if (visible) {
       setContactNo(defaultPhone || '');
+      setAirportPhone(duty?.airportAuthorityPhone || '');
       setActiveTab(0);
+      setSelectedContact(null);
+      const group = duty?.terminalName;
+      if (group) {
+        setContactsLoading(true);
+        getContacts({group})
+          .then(res => setContacts(res.data || []))
+          .catch(() => setContacts([]))
+          .finally(() => setContactsLoading(false));
+      }
     }
   }, [visible, duty]);
 
@@ -123,7 +139,7 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
     travellerDesignation: duty?.travellerDesignation || '',
     travellerPhone: duty?.travellerPhone || '',
     senderName: senderName || '',
-    senderPhone: senderPhone || '',
+    contactNo,
     airportName: duty?.airportName || '',
     date: duty?.date || '',
     airline: duty?.airline || '',
@@ -137,8 +153,9 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
   const airportMsg = buildAirportMessage({
     travellerName: duty?.travellerName || '',
     travellerDesignation: duty?.travellerDesignation || '',
+    travellerPhone: duty?.travellerPhone || '',
     senderName: senderName || '',
-    senderPhone: senderPhone || '',
+    contactNo: senderPhone || '',
     date: duty?.date || '',
     airline: duty?.airline || '',
     flightNo: duty?.flightNo || '',
@@ -148,9 +165,9 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
     arrivalDeparture: duty?.arrivalDeparture || '',
   });
 
-  const shareWhatsApp = async msg => {
+  const shareWhatsApp = async (msg, recipientPhone) => {
     try {
-      const phone = duty?.travellerPhone ? duty.travellerPhone.replace(/\D/g, '') : '';
+      const phone = recipientPhone ? recipientPhone.replace(/\D/g, '') : '';
       const url = phone
         ? `whatsapp://send?phone=91${phone}&text=${encodeURIComponent(msg)}`
         : `whatsapp://send?text=${encodeURIComponent(msg)}`;
@@ -202,7 +219,7 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
                 <ScrollView style={[styles.previewBox, styles.greenBox]} nestedScrollEnabled showsVerticalScrollIndicator={false}>
                   <Text style={[styles.previewText, styles.greenText]} selectable>{travellerMsg}</Text>
                 </ScrollView>
-                <TouchableOpacity style={styles.whatsappBtn} onPress={() => shareWhatsApp(travellerMsg)}>
+                <TouchableOpacity style={styles.whatsappBtn} onPress={() => shareWhatsApp(travellerMsg, duty?.travellerPhone)}>
                   <Text style={styles.whatsappBtnText}>📲 Share via WhatsApp</Text>
                 </TouchableOpacity>
               </>
@@ -212,10 +229,21 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
             {activeTab === 1 && (
               <>
                 <Text style={styles.subTitle}>Send to officials/authorities about the VIP traveller.</Text>
+                <Text style={styles.label}>Contact No. of Officer</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="10-digit mobile number"
+                  placeholderTextColor={colors.textSecondary}
+                  value={contactNo}
+                  onChangeText={v => setContactNo(v.replace(/[^0-9]/g, ''))}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                />
+                <Text style={styles.label}>Message Preview</Text>
                 <ScrollView style={[styles.previewBox, styles.greenBox]} nestedScrollEnabled showsVerticalScrollIndicator={false}>
                   <Text style={[styles.previewText, styles.greenText]} selectable>{vipMsg}</Text>
                 </ScrollView>
-                <TouchableOpacity style={styles.whatsappBtn} onPress={() => shareWhatsApp(vipMsg)}>
+                <TouchableOpacity style={styles.whatsappBtn} onPress={() => shareWhatsApp(vipMsg, duty?.travellerPhone)}>
                   <Text style={styles.whatsappBtnText}>📲 Share via WhatsApp</Text>
                 </TouchableOpacity>
               </>
@@ -225,10 +253,42 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
             {activeTab === 2 && (
               <>
                 <Text style={styles.subTitle}>Send to airport authority about the duty.</Text>
+                <Text style={styles.label}>Select Airport Authority Contact</Text>
+                {contactsLoading
+                  ? <ActivityIndicator size="small" color={colors.primary} style={{marginBottom: 12}} />
+                  : contacts.length > 0
+                    ? <ScrollView style={styles.contactList} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                        {contacts.map(c => (
+                          <TouchableOpacity key={c._id || c.id} style={[styles.contactItem, selectedContact?.phone === c.phone && styles.contactItemSelected]}
+                            onPress={() => { setSelectedContact(c); setAirportPhone(c.phone); }}>
+                            <Text style={styles.contactName}>{c.name}</Text>
+                            <Text style={styles.contactPhone}>📞 {c.phone}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    : <>
+                        <Text style={styles.noContacts}>No contacts for this terminal. Enter manually:</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="10-digit mobile number"
+                          placeholderTextColor={colors.textSecondary}
+                          value={airportPhone}
+                          onChangeText={v => setAirportPhone(v.replace(/[^0-9]/g, ''))}
+                          keyboardType="phone-pad"
+                          maxLength={10}
+                        />
+                      </>
+                }
+                {selectedContact && (
+                  <View style={styles.selectedBadge}>
+                    <Text style={styles.selectedBadgeText}>✓ {selectedContact.name} — {selectedContact.phone}</Text>
+                  </View>
+                )}
+                <Text style={styles.label}>Message Preview</Text>
                 <ScrollView style={[styles.previewBox, styles.blueBox]} nestedScrollEnabled showsVerticalScrollIndicator={false}>
                   <Text style={[styles.previewText, styles.blueText]} selectable>{airportMsg}</Text>
                 </ScrollView>
-                <TouchableOpacity style={styles.whatsappBtn} onPress={() => shareWhatsApp(airportMsg)}>
+                <TouchableOpacity style={styles.whatsappBtn} onPress={() => shareWhatsApp(airportMsg, airportPhone)}>
                   <Text style={styles.whatsappBtnText}>📲 Share via WhatsApp</Text>
                 </TouchableOpacity>
               </>
@@ -268,6 +328,14 @@ const styles = StyleSheet.create({
   blueText: {color: '#1e3a5f'},
   whatsappBtn: {backgroundColor: '#25D366', borderRadius: 10, paddingVertical: 13, alignItems: 'center', marginBottom: 10},
   whatsappBtnText: {color: colors.white, fontSize: 15, fontWeight: '700'},
+  contactList: {maxHeight: 160, marginBottom: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 8},
+  contactItem: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border},
+  contactItemSelected: {backgroundColor: colors.primary + '15'},
+  contactName: {fontSize: 13, fontWeight: '600', color: colors.text, flex: 1},
+  contactPhone: {fontSize: 12, color: colors.textSecondary},
+  noContacts: {fontSize: 12, color: colors.textSecondary, marginBottom: 8, fontStyle: 'italic'},
+  selectedBadge: {backgroundColor: colors.success + '20', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10, borderWidth: 1, borderColor: colors.success + '40'},
+  selectedBadgeText: {fontSize: 12, color: colors.success, fontWeight: '600'},
   doneBtn: {borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 8},
   doneBtnText: {fontSize: 14, color: colors.textSecondary, fontWeight: '500'},
 });

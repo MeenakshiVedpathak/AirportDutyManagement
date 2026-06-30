@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Alert} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Alert, Linking} from 'react-native';
 import {NativeModules} from 'react-native';
 import {launchCamera} from 'react-native-image-picker';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -18,8 +18,7 @@ import {formatDate, formatTime, getDayFromDate} from '../../../utils/dateUtils';
 import {fetchOfficersStart, fetchOfficersSuccess, fetchOfficersFailure} from '../../../store/slices/officerSlice';
 import {getOfficers} from '../../../api/officerApi';
 import {uploadDutyPdf} from '../../../api/dutyApi';
-import axiosInstance from '../../../api/axiosInstance';
-import Share from 'react-native-share';
+import PdfViewerModal from '../../../components/common/PdfViewerModal';
 const {FilePicker} = NativeModules;
 
 const Row = ({label, value}) => (
@@ -37,6 +36,7 @@ const AdminDutyDetailScreen = () => {
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfVisible, setPdfVisible] = useState(false);
   const [msgModalVisible, setMsgModalVisible] = useState(false);
   const [assignModalVisible, setAssignModalVisible] = useState(false);
   const [officerOpen, setOfficerOpen] = useState(false);
@@ -79,10 +79,13 @@ const AdminDutyDetailScreen = () => {
   const handleUploadPdf = async () => {
     try {
       const file = await FilePicker.pickPdf();
+      console.log('[UPLOAD-DETAIL] file', file?.fileName, 'b64len', file?.base64?.length);
       setPdfLoading(true);
-      await uploadDutyPdf(dutyId, {filename: file.fileName, data: file.base64, mimeType: 'application/pdf', size: 0});
+      const res = await uploadDutyPdf(dutyId, {filename: file.fileName, data: file.base64, mimeType: 'application/pdf', size: 0});
+      console.log('[UPLOAD-DETAIL] done, status', res?.status, 'hasFile', res?.data?.pdfAttachment?.hasFile);
       await fetchDuty(dutyId);
     } catch (e) {
+      console.log('[UPLOAD-DETAIL] error', e?.response?.status, e?.message);
       if (e?.code !== 'CANCELLED') {
         Alert.alert('Upload Failed', e?.message || 'Could not upload the file.');
       }
@@ -121,26 +124,9 @@ const AdminDutyDetailScreen = () => {
     ]);
   };
 
-  const handleViewPdf = async () => {
+  const handleViewPdf = () => {
     if (!duty?.pdfAttachment?.hasFile) { Alert.alert('No PDF', 'No file is attached to this duty.'); return; }
-    setPdfLoading(true);
-    try {
-      const res = await axiosInstance.get(`/duties/${duty.id}/pdf/view`, {responseType: 'arraybuffer'});
-      const bytes = new Uint8Array(res.data);
-      let binary = '';
-      for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
-      const base64 = btoa(binary);
-      const filename = duty.pdfAttachment.filename || 'document.pdf';
-      const isImage = /\.(jpe?g|png|gif|webp)$/i.test(filename);
-      const mimeType = isImage ? 'image/jpeg' : 'application/pdf';
-      await Share.open({url: `data:${mimeType};base64,${base64}`, type: mimeType, filename});
-    } catch (e) {
-      if (e?.message !== 'User did not share') {
-        Alert.alert('Error', e?.response?.data?.message || e.message || 'Could not load PDF.');
-      }
-    } finally {
-      setPdfLoading(false);
-    }
+    setPdfVisible(true);
   };
 
   const handleAssign = async () => {
@@ -209,8 +195,8 @@ const AdminDutyDetailScreen = () => {
           <Row label="Flight Time" value={formatTime(duty.flightTime)} />
           <Row label="Reporting Time" value={formatTime(duty.reportingTime)} />
           {duty.guestArrivalTime ? <Row label="Guest Arrival Time" value={formatTime(duty.guestArrivalTime)} /> : null}
-          <Row label="From" value={duty.from} />
-          <Row label="To" value={duty.to} />
+          <Row label="From" value={duty.from?.toUpperCase()} />
+          <Row label="To" value={duty.to?.toUpperCase()} />
           <Row label="Airport" value={duty.airportName || duty.airport} />
           <Row label="Terminal" value={duty.terminalName} />
           <Row label="Passengers" value={duty.noOfPassengers?.toString()} />
@@ -220,9 +206,14 @@ const AdminDutyDetailScreen = () => {
         {(duty.travellerName || duty.travellerPhone || duty.travellerDesignation) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Traveller Details</Text>
-            {duty.travellerName ? <Row label="Name of Traveller" value={duty.travellerName} /> : null}
+            {duty.travellerName ? <Row label="Name of Traveller" value={duty.travellerName?.toUpperCase()} /> : null}
             {duty.travellerDesignation ? <Row label="Designation" value={duty.travellerDesignation} /> : null}
-            {duty.travellerPhone ? <Row label="Mobile No. of Traveller" value={duty.travellerPhone} /> : null}
+            {duty.travellerPhone ? (
+              <TouchableOpacity style={styles.row} onPress={() => Linking.openURL(`tel:${duty.travellerPhone}`)}>
+                <Text style={styles.rowLabel}>Mobile No. of Traveller</Text>
+                <Text style={[styles.rowValue, styles.phoneLink]}>📞 {duty.travellerPhone}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         )}
 
@@ -321,6 +312,14 @@ const AdminDutyDetailScreen = () => {
         subordinatePhone={officers.find(o => o.id === duty?.officerId || o._id === duty?.officerId)?.phone || ''}
         onClose={() => setMsgModalVisible(false)}
       />
+
+      <PdfViewerModal
+        visible={pdfVisible}
+        dutyId={duty.id}
+        filename={duty.pdfAttachment?.filename}
+        mimeType={duty.pdfAttachment?.mimeType}
+        onClose={() => setPdfVisible(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -381,6 +380,7 @@ const styles = StyleSheet.create({
   replacePdfBtnText: {fontSize: 12, color: colors.textSecondary, fontWeight: '500'},
   uploadPdfBtn: {borderWidth: 1.5, borderColor: colors.primary + '60', borderRadius: 8, paddingVertical: 12, alignItems: 'center', backgroundColor: colors.primary + '08'},
   uploadPdfBtnText: {fontSize: 13, color: colors.primary, fontWeight: '600'},
+  phoneLink: {color: colors.primary, fontWeight: '700'},
 });
 
 export default AdminDutyDetailScreen;

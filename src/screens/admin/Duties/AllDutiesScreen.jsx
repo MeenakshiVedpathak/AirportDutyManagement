@@ -21,6 +21,17 @@ const AllDutiesScreen = () => {
   const [msgDuty, setMsgDuty] = useState(null);
 
   const user = useSelector(state => state.auth.user);
+  const officers = useSelector(state => state.officers.list);
+
+  const getOfficerPhone = duty => {
+    if (duty?.officerId) {
+      const officer = officers.find(o => o.id === duty.officerId || o._id === duty.officerId);
+      if (officer?.phone) return officer.phone;
+    }
+    return '';
+  };
+
+  useEffect(() => {fetchDuties(filters);}, []);
 
   useEffect(() => {fetchDuties(filters);}, [filters]);
 
@@ -76,7 +87,7 @@ const AllDutiesScreen = () => {
         duty={msgDuty}
         senderName={user?.name || ''}
         senderPhone={user?.phone || ''}
-        subordinatePhone={msgDuty?.officerPhone || ''}
+        subordinatePhone={getOfficerPhone(msgDuty)}
         onClose={() => setMsgDuty(null)}
       />
     </SafeAreaView>

@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Linking} from 'react-native';
 import {NativeModules} from 'react-native';
 import {launchCamera} from 'react-native-image-picker';
 const {FilePicker} = NativeModules;
@@ -8,8 +8,7 @@ import {useSelector} from 'react-redux';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useDuties} from '../../../hooks/useDuties';
 import {uploadDutyPdf} from '../../../api/dutyApi';
-import axiosInstance from '../../../api/axiosInstance';
-import Share from 'react-native-share';
+import PdfViewerModal from '../../../components/common/PdfViewerModal';
 import StatusBadge from '../../../components/common/StatusBadge';
 import {STATUS_DESCRIPTIONS, DUTY_STATUS} from '../../../constants/dutyStatus';
 import LoadingOverlay from '../../../components/common/LoadingOverlay';
@@ -31,6 +30,7 @@ const OfficerDutyDetailScreen = () => {
   const {selectedDuty: duty, fetchDuty, confirmDuty, claimDuty, releaseDuty, changeStatus, isLoading} = useDuties();
   const [acting, setActing] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfVisible, setPdfVisible] = useState(false);
 
   useEffect(() => {fetchDuty(dutyId);}, [dutyId]);
 
@@ -146,26 +146,9 @@ const OfficerDutyDetailScreen = () => {
     ]);
   };
 
-  const handleViewPdf = async () => {
+  const handleViewPdf = () => {
     if (!duty?.pdfAttachment?.hasFile) { Alert.alert('No PDF', 'No file is attached to this duty.'); return; }
-    setPdfLoading(true);
-    try {
-      const res = await axiosInstance.get(`/duties/${duty.id}/pdf/view`, {responseType: 'arraybuffer'});
-      const bytes = new Uint8Array(res.data);
-      let binary = '';
-      for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
-      const base64 = btoa(binary);
-      const filename = duty.pdfAttachment.filename || 'document.pdf';
-      const isImage = /\.(jpe?g|png|gif|webp)$/i.test(filename);
-      const mimeType = isImage ? 'image/jpeg' : 'application/pdf';
-      await Share.open({url: `data:${mimeType};base64,${base64}`, type: mimeType, filename});
-    } catch (e) {
-      if (e?.message !== 'User did not share') {
-        Alert.alert('Error', e?.response?.data?.message || e.message || 'Could not load PDF.');
-      }
-    } finally {
-      setPdfLoading(false);
-    }
+    setPdfVisible(true);
   };
 
   return (
@@ -224,8 +207,8 @@ const OfficerDutyDetailScreen = () => {
           <Row label="Flight No" value={duty.airline ? `${duty.airline} ${duty.flightNo}`.trim() : duty.flightNo} />
           {duty.pnrNo ? <Row label="PNR No" value={duty.pnrNo} /> : null}
           <Row label="Flight Time" value={formatTime(duty.flightTime)} />
-          <Row label="From" value={duty.from} />
-          <Row label="To" value={duty.to} />
+          <Row label="From" value={duty.from?.toUpperCase()} />
+          <Row label="To" value={duty.to?.toUpperCase()} />
           <Row label="Passengers" value={duty.noOfPassengers?.toString()} />
           {duty.remark ? <Row label="Remark / Details" value={duty.remark} /> : null}
         </View>
@@ -233,9 +216,14 @@ const OfficerDutyDetailScreen = () => {
         {(duty.travellerName || duty.travellerPhone || duty.travellerDesignation) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Traveller Details</Text>
-            {duty.travellerName ? <Row label="Name of Traveller" value={duty.travellerName} /> : null}
+            {duty.travellerName ? <Row label="Name of Traveller" value={duty.travellerName?.toUpperCase()} /> : null}
             {duty.travellerDesignation ? <Row label="Designation" value={duty.travellerDesignation} /> : null}
-            {duty.travellerPhone ? <Row label="Mobile No." value={duty.travellerPhone} /> : null}
+            {duty.travellerPhone ? (
+              <TouchableOpacity style={styles.row} onPress={() => Linking.openURL(`tel:${duty.travellerPhone}`)}>
+                <Text style={styles.rowLabel}>Mobile No.</Text>
+                <Text style={[styles.rowValue, styles.phoneLink]}>📞 {duty.travellerPhone}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         )}
 
@@ -334,6 +322,14 @@ const OfficerDutyDetailScreen = () => {
         )}
 
       </ScrollView>
+
+      <PdfViewerModal
+        visible={pdfVisible}
+        dutyId={duty.id}
+        filename={duty.pdfAttachment?.filename}
+        mimeType={duty.pdfAttachment?.mimeType}
+        onClose={() => setPdfVisible(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -395,6 +391,7 @@ const styles = StyleSheet.create({
   replacePdfBtnText: {fontSize: 12, color: colors.textSecondary, fontWeight: '500'},
   uploadPdfBtn: {borderWidth: 1.5, borderColor: colors.primary + '60', borderRadius: 8, paddingVertical: 12, alignItems: 'center', backgroundColor: colors.primary + '08'},
   uploadPdfBtnText: {fontSize: 13, color: colors.primary, fontWeight: '600'},
+  phoneLink: {color: colors.primary, fontWeight: '700'},
   doneBanner: {
     backgroundColor: '#F0FDF4', borderRadius: 12, borderWidth: 1.5, borderColor: '#86EFAC',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

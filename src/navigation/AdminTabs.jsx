@@ -20,9 +20,11 @@ import AirportListScreen from '../screens/admin/Airports/AirportListScreen';
 import AirportFormScreen from '../screens/admin/Airports/AirportFormScreen';
 import TerminalListScreen from '../screens/admin/Airports/TerminalListScreen';
 import TerminalFormScreen from '../screens/admin/Airports/TerminalFormScreen';
+import ContactListScreen from '../screens/admin/Contacts/ContactListScreen';
 
 const Tab = createBottomTabNavigator();
 const DutyStack = createNativeStackNavigator();
+const ContactsStack = createNativeStackNavigator();
 const OfficerStack = createNativeStackNavigator();
 const ReportStack = createNativeStackNavigator();
 const AirportStack = createNativeStackNavigator();
@@ -62,6 +64,12 @@ const ReportsNavigator = () => (
   </ReportStack.Navigator>
 );
 
+const ContactsNavigator = () => (
+  <ContactsStack.Navigator screenOptions={{headerShown: false}}>
+    <ContactsStack.Screen name="ContactList" component={ContactListScreen} />
+  </ContactsStack.Navigator>
+);
+
 const ProfileNavigator = () => (
   <ProfileStack.Navigator screenOptions={{headerShown: false}}>
     <ProfileStack.Screen name="AdminProfile" component={AdminProfileScreen} />
@@ -93,6 +101,8 @@ const AdminTabs = () => (
       options={{tabBarIcon: () => <Text style={{fontSize: 20}}>🛫</Text>}} />
     <Tab.Screen name="Reports" component={ReportsNavigator}
       options={{tabBarIcon: () => <Text style={{fontSize: 20}}>📊</Text>}} />
+    <Tab.Screen name="Contacts" component={ContactsNavigator}
+      options={{tabBarIcon: () => <Text style={{fontSize: 20}}>📞</Text>}} />
     <Tab.Screen name="Profile" component={ProfileNavigator}
       options={{tabBarIcon: () => <Text style={{fontSize: 20}}>👤</Text>}} />
   </Tab.Navigator>

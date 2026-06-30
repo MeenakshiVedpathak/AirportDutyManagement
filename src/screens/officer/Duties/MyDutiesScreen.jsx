@@ -12,15 +12,14 @@ import EmptyState from '../../../components/common/EmptyState';
 import {colors} from '../../../theme/colors';
 import {shadows} from '../../../theme/spacing';
 import {formatDate, formatTime} from '../../../utils/dateUtils';
-import {isIncentiveEligible} from '../../../utils/incentiveUtils';
 
-const TABS = ['ALL', 'MINE', 'AVAILABLE'];
+const TABS = ['AVAILABLE', 'MINE', 'ALL'];
 
 const OfficerDutiesScreen = () => {
   const navigation = useNavigation();
   const {user} = useSelector(state => state.auth);
   const {list: duties, fetchDuties, loadMore, claimDuty, releaseDuty, isLoading, pagination} = useDuties();
-  const [activeTab, setActiveTab] = useState('ALL');
+  const [activeTab, setActiveTab] = useState('AVAILABLE');
   const [actionId, setActionId] = useState(null);
 
   const load = useCallback(() => {
@@ -139,9 +138,6 @@ const OfficerDutiesScreen = () => {
             </View>
           )}
 
-          {isIncentiveEligible(item.officeType) && (
-            <View style={styles.incentiveBadge}><Text style={styles.incentiveText}>₹500 Incentive</Text></View>
-          )}
         </TouchableOpacity>
 
         {/* Action buttons below the card */}
@@ -260,9 +256,6 @@ const styles = StyleSheet.create({
   claimedByText: {fontSize: 12, color: '#DC2626', fontWeight: '500'},
   confirmedBadge: {marginTop: 8, backgroundColor: '#F0FDF4', borderRadius: 6, padding: 6},
   confirmedBadgeText: {fontSize: 12, color: '#16A34A', fontWeight: '600'},
-  incentiveBadge: {backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 8},
-  incentiveText: {fontSize: 11, fontWeight: '600', color: '#92400E'},
-
   actionRow: {marginTop: 4},
   claimBtn: {backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 11, alignItems: 'center', ...shadows.sm},
   claimBtnText: {color: colors.white, fontSize: 14, fontWeight: '700'},

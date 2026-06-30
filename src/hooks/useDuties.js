@@ -1,7 +1,7 @@
 import {useDispatch, useSelector} from 'react-redux';
 import Toast from 'react-native-toast-message';
 import {fetchDutiesStart, fetchDutiesSuccess, appendDutiesSuccess, fetchDutiesFailure, updateDutyInList, addDutyToList, removeDutyFromList, setSelectedDuty, setFilters as setFiltersAction} from '../store/slices/dutySlice';
-import {getDuties, getDutyById, createDuty, updateDutyStatus, updateDuty as updateDutyAPI, deleteDuty as deleteDutyAPI, confirmDuty as confirmDutyAPI, assignOfficer as assignOfficerAPI, claimDuty as claimDutyAPI, releaseDuty as releaseDutyAPI} from '../api/dutyApi';
+import {getDuties, getDutyById, createDuty, updateDutyStatus, updateDuty as updateDutyAPI, deleteDuty as deleteDutyAPI, confirmDuty as confirmDutyAPI, assignOfficer as assignOfficerAPI, claimDuty as claimDutyAPI, releaseDuty as releaseDutyAPI, uploadDutyPdf as uploadDutyPdfAPI} from '../api/dutyApi';
 
 const PAGE_SIZE = 20;
 
@@ -144,7 +144,22 @@ export const useDuties = () => {
     }
   };
 
+  const uploadPdf = async (id, filename, data, mimeType) => {
+    try {
+      console.log('[UPLOAD] id', id, 'filename', filename, 'dataLen', data?.length, 'mime', mimeType);
+      const res = await uploadDutyPdfAPI(id, {filename, data, mimeType});
+      console.log('[UPLOAD] success, hasFile', res.data?.pdfAttachment?.hasFile);
+      dispatch(updateDutyInList(res.data));
+      dispatch(setSelectedDuty(res.data));
+      return res.data;
+    } catch (err) {
+      console.log('[UPLOAD] error', err?.response?.status, err?.response?.data, err?.message);
+      Toast.show({type: 'error', text1: 'Upload Failed', text2: err?.message || 'Could not upload file'});
+      return null;
+    }
+  };
+
   const setFilters = filters => dispatch(setFiltersAction(filters));
 
-  return {...dutyState, fetchDuties, loadMore, fetchDuty, addDuty, editDuty, removeDuty, changeStatus, confirmDuty, assignOfficer, claimDuty, releaseDuty, setFilters};
+  return {...dutyState, fetchDuties, loadMore, fetchDuty, addDuty, editDuty, uploadPdf, removeDuty, changeStatus, confirmDuty, assignOfficer, claimDuty, releaseDuty, setFilters};
 };

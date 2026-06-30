@@ -3,7 +3,9 @@ package com.airportdutymanagement
 import android.app.Activity
 import android.content.Intent
 import android.util.Base64
+import androidx.core.content.FileProvider
 import com.facebook.react.bridge.*
+import java.io.File
 
 class FilePicker(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
@@ -78,5 +80,39 @@ class FilePicker(reactContext: ReactApplicationContext) :
             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
         }
         activity.startActivityForResult(Intent.createChooser(intent, "Select PDF"), REQUEST_CODE)
+    }
+
+    @ReactMethod
+    fun saveFileToCache(base64: String, filename: String, promise: Promise) {
+        try {
+            val context = reactApplicationContext
+            val pdfDir = File(context.cacheDir, "pdfs")
+            pdfDir.mkdirs()
+            val file = File(pdfDir, filename.ifBlank { "document.pdf" })
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+            file.writeBytes(bytes)
+            promise.resolve(file.absolutePath)
+        } catch (e: Exception) {
+            promise.reject("WRITE_ERROR", e.message ?: "Could not save file")
+        }
+    }
+
+    @ReactMethod
+    fun openFile(filePath: String, mimeType: String, promise: Promise) {
+        try {
+            val context = reactApplicationContext
+            val file = File(filePath)
+            if (!file.exists()) { promise.reject("NOT_FOUND", "File not found: $filePath"); return }
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(Intent.createChooser(intent, "Open with"))
+            promise.resolve(null)
+        } catch (e: Exception) {
+            promise.reject("OPEN_ERROR", e.message ?: "Could not open file")
+        }
     }
 }
