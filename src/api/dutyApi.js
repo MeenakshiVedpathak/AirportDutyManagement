@@ -4,19 +4,19 @@ export const createDuty = data =>
   axiosInstance.post('/duties', data);
 
 export const getDuties = filters =>
-  axiosInstance.get('/duties', {params: filters});
+  axiosInstance.get('/duties', { params: filters });
 
 export const getDutyById = id =>
   axiosInstance.get(`/duties/${id}`);
 
 export const updateDutyStatus = (id, status) =>
-  axiosInstance.patch(`/duties/${id}/status`, {status});
+  axiosInstance.patch(`/duties/${id}/status`, { status });
 
 export const confirmDuty = id =>
   axiosInstance.patch(`/duties/${id}/confirm`);
 
 export const assignOfficer = (id, officerId, officerName) =>
-  axiosInstance.patch(`/duties/${id}/assign`, {officerId, officerName});
+  axiosInstance.patch(`/duties/${id}/assign`, { officerId, officerName });
 
 export const claimDuty = id =>
   axiosInstance.patch(`/duties/${id}/claim`);
@@ -24,8 +24,19 @@ export const claimDuty = id =>
 export const releaseDuty = id =>
   axiosInstance.patch(`/duties/${id}/release`);
 
-export const updateDuty = (id, data) =>
-  axiosInstance.put(`/duties/${id}`, data);
+// export const updateDuty = (id, data) =>
+//   axiosInstance.put(`/duties/${id}`, data);
+
+export const updateDuty = async (id, data) => {
+  console.log("ID:", id);
+  console.log("Data:", data);
+
+  const response = await axiosInstance.put(`/duties/${id}`, data);
+
+  console.log("Response:", response);
+
+  return response;
+};
 
 export const deleteDuty = id =>
   axiosInstance.delete(`/duties/${id}`);

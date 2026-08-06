@@ -1,8 +1,8 @@
 import React from 'react';
-import {Text} from 'react-native';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {colors} from '../theme/colors';
+import { Text } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { colors } from '../theme/colors';
 import AdminDashboardScreen from '../screens/admin/Dashboard/AdminDashboardScreen';
 import AllDutiesScreen from '../screens/admin/Duties/AllDutiesScreen';
 import CreateDutyScreen from '../screens/admin/Duties/CreateDutyScreen';
@@ -21,6 +21,9 @@ import AirportFormScreen from '../screens/admin/Airports/AirportFormScreen';
 import TerminalListScreen from '../screens/admin/Airports/TerminalListScreen';
 import TerminalFormScreen from '../screens/admin/Airports/TerminalFormScreen';
 import ContactListScreen from '../screens/admin/Contacts/ContactListScreen';
+// import DailyReportScreen from '../screens/admin/DailyReportScreen';
+import DailyReportScreen from '../screens/admin/Reports/DailyReportScreen';
+
 
 const Tab = createBottomTabNavigator();
 const DutyStack = createNativeStackNavigator();
@@ -31,7 +34,7 @@ const AirportStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 
 const DutiesNavigator = () => (
-  <DutyStack.Navigator screenOptions={{headerShown: false}}>
+  <DutyStack.Navigator screenOptions={{ headerShown: false }}>
     <DutyStack.Screen name="AllDuties" component={AllDutiesScreen} />
     <DutyStack.Screen name="CreateDuty" component={CreateDutyScreen} />
     <DutyStack.Screen name="DutyDetail" component={DutyDetailScreen} />
@@ -41,7 +44,7 @@ const DutiesNavigator = () => (
 );
 
 const OfficersNavigator = () => (
-  <OfficerStack.Navigator screenOptions={{headerShown: false}}>
+  <OfficerStack.Navigator screenOptions={{ headerShown: false }}>
     <OfficerStack.Screen name="OfficerList" component={OfficerListScreen} />
     <OfficerStack.Screen name="AddOfficer" component={AddOfficerScreen} />
     <OfficerStack.Screen name="EditOfficer" component={EditOfficerScreen} />
@@ -49,7 +52,7 @@ const OfficersNavigator = () => (
 );
 
 const AirportsNavigator = () => (
-  <AirportStack.Navigator screenOptions={{headerShown: false}}>
+  <AirportStack.Navigator screenOptions={{ headerShown: false }}>
     <AirportStack.Screen name="AirportList" component={AirportListScreen} />
     <AirportStack.Screen name="AirportForm" component={AirportFormScreen} />
     <AirportStack.Screen name="TerminalList" component={TerminalListScreen} />
@@ -58,20 +61,21 @@ const AirportsNavigator = () => (
 );
 
 const ReportsNavigator = () => (
-  <ReportStack.Navigator screenOptions={{headerShown: false}}>
+  <ReportStack.Navigator screenOptions={{ headerShown: false }}>
     <ReportStack.Screen name="DutyReport" component={DutyReportScreen} />
     <ReportStack.Screen name="SubordinateReport" component={SubordinateReportScreen} />
+    <ReportStack.Screen name="DailyReport" component={DailyReportScreen} />
   </ReportStack.Navigator>
 );
 
 const ContactsNavigator = () => (
-  <ContactsStack.Navigator screenOptions={{headerShown: false}}>
+  <ContactsStack.Navigator screenOptions={{ headerShown: false }}>
     <ContactsStack.Screen name="ContactList" component={ContactListScreen} />
   </ContactsStack.Navigator>
 );
 
 const ProfileNavigator = () => (
-  <ProfileStack.Navigator screenOptions={{headerShown: false}}>
+  <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
     <ProfileStack.Screen name="AdminProfile" component={AdminProfileScreen} />
     <ProfileStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
   </ProfileStack.Navigator>
@@ -83,28 +87,28 @@ const AdminTabs = () => (
       headerShown: false,
       tabBarActiveTintColor: colors.primary,
       tabBarInactiveTintColor: colors.textSecondary,
-      tabBarStyle: {backgroundColor: colors.white, borderTopColor: colors.border, height: 60, paddingBottom: 8},
+      tabBarStyle: { backgroundColor: colors.white, borderTopColor: colors.border, height: 60, paddingBottom: 8 },
     }}>
     <Tab.Screen name="Dashboard" component={AdminDashboardScreen}
-      options={{tabBarIcon: () => <Text style={{fontSize: 20}}>🏠</Text>}} />
+      options={{ tabBarIcon: () => <Text style={{ fontSize: 20 }}>🏠</Text> }} />
     <Tab.Screen name="Duties" component={DutiesNavigator}
-      options={{tabBarIcon: () => <Text style={{fontSize: 20}}>📋</Text>}}
-      listeners={({navigation}) => ({
+      options={{ tabBarIcon: () => <Text style={{ fontSize: 20 }}>📋</Text> }}
+      listeners={({ navigation }) => ({
         tabPress: e => {
           e.preventDefault();
-          navigation.navigate('Duties', {screen: 'AllDuties'});
+          navigation.navigate('Duties', { screen: 'AllDuties' });
         },
       })} />
     <Tab.Screen name="Officers" component={OfficersNavigator}
-      options={{tabBarLabel: 'Subordinates', tabBarIcon: () => <Text style={{fontSize: 20}}>👮</Text>}} />
+      options={{ tabBarLabel: 'Subordinates', tabBarIcon: () => <Text style={{ fontSize: 20 }}>👮</Text> }} />
     <Tab.Screen name="Airports" component={AirportsNavigator}
-      options={{tabBarIcon: () => <Text style={{fontSize: 20}}>🛫</Text>}} />
+      options={{ tabBarIcon: () => <Text style={{ fontSize: 20 }}>🛫</Text> }} />
     <Tab.Screen name="Reports" component={ReportsNavigator}
-      options={{tabBarIcon: () => <Text style={{fontSize: 20}}>📊</Text>}} />
+      options={{ tabBarIcon: () => <Text style={{ fontSize: 20 }}>📊</Text> }} />
     <Tab.Screen name="Contacts" component={ContactsNavigator}
-      options={{tabBarIcon: () => <Text style={{fontSize: 20}}>📞</Text>}} />
+      options={{ tabBarIcon: () => <Text style={{ fontSize: 20 }}>📞</Text> }} />
     <Tab.Screen name="Profile" component={ProfileNavigator}
-      options={{tabBarIcon: () => <Text style={{fontSize: 20}}>👤</Text>}} />
+      options={{ tabBarIcon: () => <Text style={{ fontSize: 20 }}>👤</Text> }} />
   </Tab.Navigator>
 );
 

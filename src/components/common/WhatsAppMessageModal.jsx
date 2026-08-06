@@ -1,32 +1,47 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal, View, Text, StyleSheet, TouchableOpacity,
   TextInput, ScrollView, Share, Linking, ActivityIndicator,
 } from 'react-native';
-import {getContacts} from '../../api/contactApi';
-import {colors} from '../../theme/colors';
-import {shadows} from '../../theme/spacing';
-import {formatTime, formatDate} from '../../utils/dateUtils';
+import { getContacts } from '../../api/contactApi';
+import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/spacing';
+import { formatTime, formatDate } from '../../utils/dateUtils';
 
 const flightLabel = (airline, flightNo) =>
   airline ? `${airline} ${flightNo}`.trim() : (flightNo || '');
 
-const buildTravellerMessage = ({senderName, subordinateName, airportName, terminalName, date, airline, flightNo, flightTime, from, to, arrivalDeparture, contactNo}) => {
-  const arrDep = arrivalDeparture === 'ARRIVAL' ? 'Arrival' : 'Departure';
-  const formattedDate = date ? formatDate(date, 'DD.MM.YYYY') : '__________';
-  const lines = [
-    `Dear Maam/Sir,`,
-    '',
-    `Mr. ${subordinateName || 'Our Officer'} will be facilitating you at ${airportName}${terminalName ? `, ${terminalName}` : ''} on ${formattedDate} for your ${arrDep} — Flight ${flightLabel(airline, flightNo)} at ${formatTime(flightTime)}`,
-    `(${from} → ${to}).`,
-    '',
-    `Contact No: ${contactNo || '__________'}`,
-    '',
-    `Regards,`,
-    senderName,
-    `Income Tax Officer (HQ) Airport Protocol, Mumbai.`,
-  ];
-  return lines.join('\n');
+const buildTravellerMessage = ({
+  subordinateName,
+  contactNo,
+  airportName,
+  terminalName,
+  date,
+  airline,
+  flightNo,
+  flightTime,
+  to,
+}) => {
+  const formattedDate = date
+    ? formatDate(date, "DD.MM.YYYY")
+    : "____________";
+
+  return `Dear Sir,
+
+Mr. ${subordinateName || "________________"} (${contactNo || "____________"}) will be facilitating you at Chhatrapati Shivaji Maharaj International Airport (CSMIA), ${terminalName || "Terminal 2"}, Mumbai on ${formattedDate} for your departure by ${flightLabel(
+    airline,
+    flightNo
+  )} scheduled at ${formatTime(flightTime)} Hrs (Mumbai to ${to || "____________"
+    }).
+
+Please inform us of your expected arrival time at the airport so that necessary protocol arrangements can be made for your smooth movement.
+
+Regards,
+
+Jitendra Chandekar
+Income Tax Officer (HQ) – Airport
+Mumbai
+Mob.: 9869141242 / 9969236242`;
 };
 
 const flightLine = (isDeparture, from, to, flightTime) =>
@@ -34,64 +49,104 @@ const flightLine = (isDeparture, from, to, flightTime) =>
     ? `Flight departure from ${from || '__'} at ${formatTime(flightTime)} and arriving ${to || '__'}.`
     : `Flight arriving at ${to || '__'} at ${formatTime(flightTime)} from ${from || '__'}.`;
 
-const buildVipGuestMessage = ({travellerName, travellerDesignation, travellerPhone, senderName, contactNo, airportName, date, airline, flightNo, flightTime, from, to, arrivalDeparture}) => {
-  const formattedDate = date ? formatDate(date, 'DD.MM.YYYY') : '__________';
-  const traveller = [travellerName, travellerDesignation, travellerPhone].filter(Boolean).join(', ') || '__________';
-  const isDeparture = arrivalDeparture === 'DEPARTURE';
-  const lines = [
-    `Sir/Madam,`,
-    '',
-    `${traveller}, is travelling from ${from || '__'} to ${to || '__'} on ${formattedDate} by ${flightLabel(airline, flightNo)}.`,
-    '',
-    flightLine(isDeparture, from, to, flightTime),
-    '',
-    `Airport protocol and porter required at the airport ${airportName || ''}.`,
-    '',
-    `Your assistance in ensuring smooth facilitation at the airport would be highly appreciated.`,
-    '',
-    `Kindly revert with the details of the staff member who will be assisting at the airport to my mobile number mentioned below.`,
-    '',
-    `Thank you for your support.`,
-    '',
-    `Warm regards,`,
-    senderName || '__________',
-    `Income Tax Officer (HQ), Airport (Protocol)`,
-    `Mumbai`,
-    '',
-    `Cont No ${contactNo || senderName || ''}`,
-  ];
-  return lines.join('\n');
+const buildVipGuestMessage = ({
+  travellerName,
+  travellerDesignation,
+  travellerPhone,
+  from,
+  to,
+  airline,
+  flightNo,
+  departureAirport,
+  arrivalAirport,
+  departureTerminal,
+  arrivalTerminal,
+  flightTime,
+  arrivalTime,
+  date,
+}) => {
+  const formattedDate = date
+    ? formatDate(date, "dddd, DD.MM.YYYY")
+    : "____________";
+
+  return `Dear Sir,
+
+Shri ${travellerName || "____________"}, ${travellerDesignation || "____________"
+    }, ${from || "____________"}, Contact No. ${travellerPhone || "____________"
+    }, is travelling from ${from || "____________"} to ${to || "____________"
+    } today, ${formattedDate}, by ${flightLabel(airline, flightNo)}.
+
+The flight is scheduled to depart at ${formatTime(
+      flightTime
+    )} Hrs from Terminal ${departureTerminal || "__"}, ${departureAirport || from || "____________"
+    } Airport, and arrive at Terminal ${arrivalTerminal || "__"}, ${arrivalAirport || to || "____________"
+    } Airport at ${arrivalTime || "______"} Hrs.
+
+You are requested to kindly arrange airport protocol assistance, porter service, and lounge access for the officer to ensure smooth and seamless movement through the airport.
+
+A copy of the air ticket is enclosed herewith for your kind reference and for making the necessary arrangements.
+
+Your assistance in facilitating a hassle-free airport experience for the officer will be highly appreciated.
+
+Thank you for your continued support.
+
+Warm regards,
+
+Jitendra Chandekar
+Income Tax Officer (HQ), Airport, Mumbai
+Mob.: 9869141242 / 9969236242`;
 };
 
-const buildAirportMessage = ({travellerName, travellerDesignation, travellerPhone, senderName, contactNo, date, airline, flightNo, flightTime, from, to, arrivalDeparture}) => {
-  const formattedDate = date ? formatDate(date, 'DD.MM.YYYY') : '__________';
-  const traveller = [travellerName, travellerDesignation, travellerPhone].filter(Boolean).join(', ') || '__________';
-  const isDeparture = arrivalDeparture === 'DEPARTURE';
-  const lines = [
-    `Sir/Madam,`,
-    '',
-    `${traveller}, is travelling from ${from || '__'} to ${to || '__'} on ${formattedDate} by ${flightLabel(airline, flightNo)}.`,
-    '',
-    flightLine(isDeparture, from, to, flightTime),
-    '',
-    `Airport protocol and porter required at the airport.`,
-    '',
-    `Your assistance in ensuring smooth facilitation at the airport would be highly appreciated.`,
-    `Thank you for your support.`,
-    '',
-    `Warm regards,`,
-    '',
-    senderName || '__________',
-    `Income Tax Officer (HQ), Airport (Protocol)`,
-    `Mumbai`,
-    `Cont No ${contactNo || senderName || ''}`,
-  ];
-  return lines.join('\n');
+const buildAirportMessage = ({
+  travellerName,
+  travellerDesignation,
+  travellerPhone,
+  from,
+  to,
+  airline,
+  flightNo,
+  departureAirport,
+  arrivalAirport,
+  flightTime,
+  arrivalTime,
+  date,
+}) => {
+  const formattedDate = date
+    ? formatDate(date, "DD.MM.YYYY")
+    : "____________";
+
+  return `Sir/Madam,
+
+Shri/Smt. ${travellerName || "____________"} (${travellerDesignation || "Designation"
+    })
+Contact No.: ${travellerPhone || "____________"}
+
+is travelling from ${from || "____________"} to ${to || "____________"
+    } on ${formattedDate} by ${flightLabel(airline, flightNo)}.
+
+The flight is scheduled to depart from ${departureAirport || from || "____________"
+    } Airport at ${formatTime(flightTime)} Hrs and arrive at ${arrivalAirport || to || "____________"
+    } Airport at ${arrivalTime || "______"} Hrs.
+
+You are requested to kindly arrange airport protocol assistance and porter service at ${arrivalAirport || to || "____________"
+    } Airport.
+
+Your assistance in ensuring smooth and seamless facilitation at the airport will be highly appreciated.
+
+Kindly share the name and contact number of the staff member who will be assisting the officer at the airport on my mobile number mentioned below.
+
+Thank you for your continued support.
+
+Warm regards,
+
+Jitendra Chandekar
+Income Tax Officer (HQ), Airport, Mumbai
+Mob.: 9869141242 / 9969236242`;
 };
 
 const TABS = ['Traveller', 'VIP Guest', 'Airport Authority'];
 
-const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordinatePhone, onClose}) => {
+const WhatsAppMessageModal = ({ visible, duty, senderName, senderPhone, subordinatePhone, onClose }) => {
   const [contactNo, setContactNo] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   const [airportPhone, setAirportPhone] = useState('');
@@ -111,7 +166,7 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
       const group = duty?.terminalName;
       if (group) {
         setContactsLoading(true);
-        getContacts({group})
+        getContacts({ group })
           .then(res => setContacts(res.data || []))
           .catch(() => setContacts([]))
           .finally(() => setContactsLoading(false));
@@ -173,8 +228,8 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
         : `whatsapp://send?text=${encodeURIComponent(msg)}`;
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) { await Linking.openURL(url); }
-      else { await Share.share({message: msg}); }
-    } catch { await Share.share({message: msg}); }
+      else { await Share.share({ message: msg }); }
+    } catch { await Share.share({ message: msg }); }
   };
 
 
@@ -185,7 +240,7 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
 
           <View style={styles.header}>
             <Text style={styles.title}>📤 Send Messages</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={styles.closeX}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -208,7 +263,7 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
                 <Text style={styles.label}>Contact No. of Officer</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="10-digit mobile number"
+                  placeholder=""
                   placeholderTextColor={colors.textSecondary}
                   value={contactNo}
                   onChangeText={v => setContactNo(v.replace(/[^0-9]/g, ''))}
@@ -232,7 +287,7 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
                 <Text style={styles.label}>Contact No. of Officer</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="10-digit mobile number"
+                  placeholder=""
                   placeholderTextColor={colors.textSecondary}
                   value={contactNo}
                   onChangeText={v => setContactNo(v.replace(/[^0-9]/g, ''))}
@@ -255,29 +310,29 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
                 <Text style={styles.subTitle}>Send to airport authority about the duty.</Text>
                 <Text style={styles.label}>Select Airport Authority Contact</Text>
                 {contactsLoading
-                  ? <ActivityIndicator size="small" color={colors.primary} style={{marginBottom: 12}} />
+                  ? <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: 12 }} />
                   : contacts.length > 0
                     ? <ScrollView style={styles.contactList} nestedScrollEnabled showsVerticalScrollIndicator={false}>
-                        {contacts.map(c => (
-                          <TouchableOpacity key={c._id || c.id} style={[styles.contactItem, selectedContact?.phone === c.phone && styles.contactItemSelected]}
-                            onPress={() => { setSelectedContact(c); setAirportPhone(c.phone); }}>
-                            <Text style={styles.contactName}>{c.name}</Text>
-                            <Text style={styles.contactPhone}>📞 {c.phone}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
+                      {contacts.map(c => (
+                        <TouchableOpacity key={c._id || c.id} style={[styles.contactItem, selectedContact?.phone === c.phone && styles.contactItemSelected]}
+                          onPress={() => { setSelectedContact(c); setAirportPhone(c.phone); }}>
+                          <Text style={styles.contactName}>{c.name}</Text>
+                          <Text style={styles.contactPhone}>📞 {c.phone}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
                     : <>
-                        <Text style={styles.noContacts}>No contacts for this terminal. Enter manually:</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="10-digit mobile number"
-                          placeholderTextColor={colors.textSecondary}
-                          value={airportPhone}
-                          onChangeText={v => setAirportPhone(v.replace(/[^0-9]/g, ''))}
-                          keyboardType="phone-pad"
-                          maxLength={10}
-                        />
-                      </>
+                      <Text style={styles.noContacts}>No contacts for this terminal. Enter manually:</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder=""
+                        placeholderTextColor={colors.textSecondary}
+                        value={airportPhone}
+                        onChangeText={v => setAirportPhone(v.replace(/[^0-9]/g, ''))}
+                        keyboardType="phone-pad"
+                        maxLength={10}
+                      />
+                    </>
                 }
                 {selectedContact && (
                   <View style={styles.selectedBadge}>
@@ -307,37 +362,37 @@ const WhatsAppMessageModal = ({visible, duty, senderName, senderPhone, subordina
 };
 
 const styles = StyleSheet.create({
-  overlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'},
-  sheet: {backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '94%', ...shadows.md},
-  header: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12},
-  title: {fontSize: 17, fontWeight: '700', color: colors.text},
-  closeX: {fontSize: 18, color: colors.textSecondary, fontWeight: '600'},
-  tabRow: {flexDirection: 'row', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, marginBottom: 14},
-  tab: {flex: 1, paddingVertical: 9, alignItems: 'center', backgroundColor: colors.background},
-  tabActive: {backgroundColor: colors.primary},
-  tabText: {fontSize: 12, fontWeight: '600', color: colors.textSecondary},
-  tabTextActive: {color: colors.white},
-  subTitle: {fontSize: 12, color: colors.textSecondary, marginBottom: 10, lineHeight: 17},
-  label: {fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 6},
-  input: {borderWidth: 1.5, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: colors.text, backgroundColor: colors.surface, marginBottom: 12},
-  previewBox: {borderRadius: 10, padding: 14, borderWidth: 1, maxHeight: 160, marginBottom: 12},
-  greenBox: {backgroundColor: '#F0FDF4', borderColor: '#86EFAC'},
-  blueBox: {backgroundColor: '#EFF6FF', borderColor: '#93C5FD'},
-  previewText: {fontSize: 13, lineHeight: 20},
-  greenText: {color: '#166534'},
-  blueText: {color: '#1e3a5f'},
-  whatsappBtn: {backgroundColor: '#25D366', borderRadius: 10, paddingVertical: 13, alignItems: 'center', marginBottom: 10},
-  whatsappBtnText: {color: colors.white, fontSize: 15, fontWeight: '700'},
-  contactList: {maxHeight: 160, marginBottom: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 8},
-  contactItem: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border},
-  contactItemSelected: {backgroundColor: colors.primary + '15'},
-  contactName: {fontSize: 13, fontWeight: '600', color: colors.text, flex: 1},
-  contactPhone: {fontSize: 12, color: colors.textSecondary},
-  noContacts: {fontSize: 12, color: colors.textSecondary, marginBottom: 8, fontStyle: 'italic'},
-  selectedBadge: {backgroundColor: colors.success + '20', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10, borderWidth: 1, borderColor: colors.success + '40'},
-  selectedBadgeText: {fontSize: 12, color: colors.success, fontWeight: '600'},
-  doneBtn: {borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 8},
-  doneBtnText: {fontSize: 14, color: colors.textSecondary, fontWeight: '500'},
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '94%', ...shadows.md },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  title: { fontSize: 17, fontWeight: '700', color: colors.text },
+  closeX: { fontSize: 18, color: colors.textSecondary, fontWeight: '600' },
+  tabRow: { flexDirection: 'row', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, marginBottom: 14 },
+  tab: { flex: 1, paddingVertical: 9, alignItems: 'center', backgroundColor: colors.background },
+  tabActive: { backgroundColor: colors.primary },
+  tabText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  tabTextActive: { color: colors.white },
+  subTitle: { fontSize: 12, color: colors.textSecondary, marginBottom: 10, lineHeight: 17 },
+  label: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 6 },
+  input: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: colors.text, backgroundColor: colors.surface, marginBottom: 12 },
+  previewBox: { borderRadius: 10, padding: 14, borderWidth: 1, maxHeight: 160, marginBottom: 12 },
+  greenBox: { backgroundColor: '#F0FDF4', borderColor: '#86EFAC' },
+  blueBox: { backgroundColor: '#EFF6FF', borderColor: '#93C5FD' },
+  previewText: { fontSize: 13, lineHeight: 20 },
+  greenText: { color: '#166534' },
+  blueText: { color: '#1e3a5f' },
+  whatsappBtn: { backgroundColor: '#25D366', borderRadius: 10, paddingVertical: 13, alignItems: 'center', marginBottom: 10 },
+  whatsappBtnText: { color: colors.white, fontSize: 15, fontWeight: '700' },
+  contactList: { maxHeight: 160, marginBottom: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 8 },
+  contactItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  contactItemSelected: { backgroundColor: colors.primary + '15' },
+  contactName: { fontSize: 13, fontWeight: '600', color: colors.text, flex: 1 },
+  contactPhone: { fontSize: 12, color: colors.textSecondary },
+  noContacts: { fontSize: 12, color: colors.textSecondary, marginBottom: 8, fontStyle: 'italic' },
+  selectedBadge: { backgroundColor: colors.success + '20', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10, borderWidth: 1, borderColor: colors.success + '40' },
+  selectedBadgeText: { fontSize: 12, color: colors.success, fontWeight: '600' },
+  doneBtn: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+  doneBtnText: { fontSize: 14, color: colors.textSecondary, fontWeight: '500' },
 });
 
 export default WhatsAppMessageModal;

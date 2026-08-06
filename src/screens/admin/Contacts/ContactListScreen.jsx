@@ -1,15 +1,36 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Linking, Alert, Modal, TextInput, KeyboardAvoidingView,
-  Platform, ActivityIndicator, RefreshControl,
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Linking,
+  Alert,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {getContacts, createContact, updateContact, deleteContact} from '../../../api/contactApi';
-import {colors} from '../../../theme/colors';
-import {shadows} from '../../../theme/spacing';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { getContacts, createContact, updateContact, deleteContact } from '../../../api/contactApi';
+import { colors } from '../../../theme/colors';
+import { shadows } from '../../../theme/spacing';
 
 const TABS = ['T1', 'T2', 'Ulve'];
+
+const PURPOSE_OPTIONS = [
+  'Buggi',
+  'Special Handling',
+  'Porter',
+  'Flight Status',
+  'Airport Counter',
+  'Security Incharge',
+  'Customs Office',
+  'AIU Unit',
+];
 
 const getInitials = name => {
   if (!name) return '?';
@@ -25,11 +46,16 @@ const ContactListScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Form state
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState(null);
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
+  const [formPurpose, setFormPurpose] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Purpose picker
+  const [showPurposePicker, setShowPurposePicker] = useState(false);
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -44,7 +70,9 @@ const ContactListScreen = () => {
     }
   }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const tabContacts = allContacts.filter(c => c.group === activeTab);
 
@@ -52,6 +80,7 @@ const ContactListScreen = () => {
     setEditing(null);
     setFormName('');
     setFormPhone('');
+    setFormPurpose('');
     setModalVisible(true);
   };
 
@@ -59,22 +88,45 @@ const ContactListScreen = () => {
     setEditing(contact);
     setFormName(contact.name);
     setFormPhone(contact.phone);
+    setFormPurpose(contact.purpose || '');
     setModalVisible(true);
   };
 
   const handleSave = async () => {
     const name = formName.trim();
     const phone = formPhone.trim().replace(/\D/g, '');
-    if (!name) { Alert.alert('Validation', 'Name is required'); return; }
-    if (!phone || phone.length < 10) { Alert.alert('Validation', 'Enter a valid 10-digit number'); return; }
+    const purpose = formPurpose.trim();
+
+    if (!name) {
+      Alert.alert('Validation', 'Name is required');
+      return;
+    }
+    if (!phone || phone.length < 10) {
+      Alert.alert('Validation', 'Enter a valid 10-digit number');
+      return;
+    }
+    if (!purpose) {
+      Alert.alert('Validation', 'Purpose is required');
+      return;
+    }
 
     setSaving(true);
     try {
       if (editing) {
-        const res = await updateContact(editing.id, { name, phone, group: activeTab });
-        setAllContacts(prev => prev.map(c => c.id === editing.id ? res.data : c));
+        const res = await updateContact(editing.id, {
+          name,
+          phone,
+          purpose,
+          group: activeTab,
+        });
+        setAllContacts(prev => prev.map(c => (c.id === editing.id ? res.data : c)));
       } else {
-        const res = await createContact({ name, phone, group: activeTab });
+        const res = await createContact({
+          name,
+          phone,
+          purpose,
+          group: activeTab,
+        });
         setAllContacts(prev => [...prev, res.data]);
       }
       setModalVisible(false);
@@ -92,7 +144,8 @@ const ContactListScreen = () => {
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete', style: 'destructive',
+          text: 'Delete',
+          style: 'destructive',
           onPress: async () => {
             try {
               await deleteContact(contact.id);
@@ -113,7 +166,7 @@ const ContactListScreen = () => {
     });
   };
 
-  const renderItem = ({item, index}) => (
+  const renderItem = ({ item, index }) => (
     <View style={[styles.card, index === 0 && styles.cardFirst]}>
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
@@ -121,6 +174,7 @@ const ContactListScreen = () => {
       <View style={styles.info}>
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.phone}>{item.phone}</Text>
+        {item.purpose && <Text style={styles.purpose}>{item.purpose}</Text>}
       </View>
       <TouchableOpacity style={styles.callBtn} onPress={() => handleCall(item.phone)}>
         <Text style={styles.callIcon}>📞</Text>
@@ -140,7 +194,7 @@ const ContactListScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ActivityIndicator style={{flex: 1}} color={colors.primary} size="large" />
+        <ActivityIndicator style={{ flex: 1 }} color={colors.primary} size="large" />
       </SafeAreaView>
     );
   }
@@ -164,7 +218,9 @@ const ContactListScreen = () => {
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => setActiveTab(tab)}
             activeOpacity={0.8}>
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {tab}
+            </Text>
             <Text style={[styles.tabCount, activeTab === tab && styles.tabCountActive]}>
               {allContacts.filter(c => c.group === tab).length}
             </Text>
@@ -178,7 +234,16 @@ const ContactListScreen = () => {
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} colors={[colors.primary]} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              load(true);
+            }}
+            colors={[colors.primary]}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>📋</Text>
@@ -188,14 +253,23 @@ const ContactListScreen = () => {
         }
       />
 
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Add / Edit Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editing ? 'Edit Contact' : `Add Contact — ${activeTab}`}
               </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -221,72 +295,271 @@ const ContactListScreen = () => {
               maxLength={10}
             />
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
-              {saving
-                ? <ActivityIndicator color={colors.white} />
-                : <Text style={styles.saveBtnText}>{editing ? 'Save Changes' : 'Add Contact'}</Text>}
+            <Text style={styles.fieldLabel}>Purpose</Text>
+            <TouchableOpacity
+              style={styles.input}
+              onPress={() => setShowPurposePicker(true)}
+              activeOpacity={0.8}>
+              <Text
+                style={{
+                  color: formPurpose ? colors.text : colors.textSecondary,
+                }}>
+                {formPurpose || 'Select purpose'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.8}>
+              {saving ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>
+                  {editing ? 'Save Changes' : 'Add Contact'}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Purpose Picker Modal */}
+      <Modal
+        visible={showPurposePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPurposePicker(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Select Purpose</Text>
+            <FlatList
+              data={PURPOSE_OPTIONS}
+              keyExtractor={item => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.pickerItem}
+                  onPress={() => {
+                    setFormPurpose(item);
+                    setShowPurposePicker(false);
+                  }}>
+                  <Text style={styles.pickerItemText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity
+              style={styles.pickerCancel}
+              onPress={() => setShowPurposePicker(false)}>
+              <Text style={styles.pickerCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: colors.background},
+  safe: { flex: 1, backgroundColor: colors.background },
   header: {
-    backgroundColor: colors.primary, paddingHorizontal: 20, paddingTop: 16,
-    paddingBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  title: {fontSize: 20, fontWeight: '700', color: colors.white},
-  subtitle: {fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2},
-  addBtn: {backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)'},
-  addBtnText: {color: colors.white, fontWeight: '700', fontSize: 14},
+  title: { fontSize: 20, fontWeight: '700', color: colors.white },
+  subtitle: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  addBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  addBtnText: { color: colors.white, fontWeight: '700', fontSize: 14 },
 
-  tabRow: {flexDirection: 'row', backgroundColor: colors.primary, paddingHorizontal: 16, paddingBottom: 14, gap: 10},
-  tab: {flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.15)'},
-  tabActive: {backgroundColor: colors.white},
-  tabText: {fontSize: 16, fontWeight: '700', color: 'rgba(255,255,255,0.85)'},
-  tabTextActive: {color: colors.primary},
-  tabCount: {fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2},
-  tabCountActive: {color: colors.primary + 'AA'},
+  tabRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    gap: 10,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  tabActive: { backgroundColor: colors.white },
+  tabText: { fontSize: 16, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
+  tabTextActive: { color: colors.primary },
+  tabCount: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  tabCountActive: { color: colors.primary + 'AA' },
 
-  list: {padding: 16, paddingBottom: 40},
-  cardFirst: {marginTop: 0},
-  card: {flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderRadius: 12, padding: 12, marginBottom: 10, ...shadows.sm},
-  avatar: {width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 12},
-  avatarText: {color: colors.white, fontSize: 15, fontWeight: '700'},
-  info: {flex: 1},
-  name: {fontSize: 14, fontWeight: '600', color: colors.text},
-  phone: {fontSize: 12, color: colors.textSecondary, marginTop: 2},
+  list: { padding: 16, paddingBottom: 40 },
+  cardFirst: { marginTop: 0 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    ...shadows.sm,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  avatarText: { color: colors.white, fontSize: 15, fontWeight: '700' },
+  info: { flex: 1 },
+  name: { fontSize: 14, fontWeight: '600', color: colors.text },
+  phone: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  purpose: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
 
-  callBtn: {alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: '#86EFAC', marginLeft: 6},
-  callIcon: {fontSize: 16},
-  callLabel: {fontSize: 9, color: '#16A34A', fontWeight: '600', marginTop: 1},
+  callBtn: {
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    marginLeft: 6,
+  },
+  callIcon: { fontSize: 16 },
+  callLabel: { fontSize: 9, color: '#16A34A', fontWeight: '600', marginTop: 1 },
 
-  editBtn: {alignItems: 'center', backgroundColor: colors.primary + '12', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: colors.primary + '40', marginLeft: 6},
-  editIcon: {fontSize: 16, color: colors.primary},
-  editLabel: {fontSize: 9, color: colors.primary, fontWeight: '600', marginTop: 1},
+  editBtn: {
+    alignItems: 'center',
+    backgroundColor: colors.primary + '12',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+    marginLeft: 6,
+  },
+  editIcon: { fontSize: 16, color: colors.primary },
+  editLabel: { fontSize: 9, color: colors.primary, fontWeight: '600', marginTop: 1 },
 
-  deleteBtn: {alignItems: 'center', backgroundColor: '#FEF2F2', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: '#FECACA', marginLeft: 6},
-  deleteIcon: {fontSize: 16},
-  deleteLabel: {fontSize: 9, color: '#DC2626', fontWeight: '600', marginTop: 1},
+  deleteBtn: {
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    marginLeft: 6,
+  },
+  deleteIcon: { fontSize: 16 },
+  deleteLabel: { fontSize: 9, color: '#DC2626', fontWeight: '600', marginTop: 1 },
 
-  empty: {alignItems: 'center', paddingTop: 60},
-  emptyIcon: {fontSize: 40, marginBottom: 12},
-  emptyText: {fontSize: 16, fontWeight: '600', color: colors.text},
-  emptyHint: {fontSize: 13, color: colors.textSecondary, marginTop: 4},
+  empty: { alignItems: 'center', paddingTop: 60 },
+  emptyIcon: { fontSize: 40, marginBottom: 12 },
+  emptyText: { fontSize: 16, fontWeight: '600', color: colors.text },
+  emptyHint: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
 
-  modalOverlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end'},
-  modalSheet: {backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, ...shadows.md},
-  modalHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20},
-  modalTitle: {fontSize: 17, fontWeight: '700', color: colors.text},
-  modalClose: {fontSize: 18, color: colors.textSecondary, fontWeight: '600'},
-  fieldLabel: {fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 6},
-  input: {borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.text, backgroundColor: colors.surface, marginBottom: 16},
-  saveBtn: {backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 4},
-  saveBtnText: {color: colors.white, fontSize: 16, fontWeight: '700'},
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    ...shadows.md,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
+  modalClose: { fontSize: 18, color: colors.textSecondary, fontWeight: '600' },
+
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  input: {
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.text,
+    backgroundColor: colors.surface,
+    marginBottom: 16,
+  },
+  saveBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  saveBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+
+  // Purpose picker styles
+  pickerSheet: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 24,
+    maxHeight: 400,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  pickerItem: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  pickerItemText: {
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  pickerCancel: {
+    marginTop: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  pickerCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.error,
+  },
 });
 
 export default ContactListScreen;
